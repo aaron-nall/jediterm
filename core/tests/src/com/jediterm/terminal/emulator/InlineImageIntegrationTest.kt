@@ -144,4 +144,94 @@ class InlineImageIntegrationTest {
     val placements = session.terminalTextBuffer.getInlineImages(line1)
     assertEquals(1, placements.size)
   }
+
+  @Test
+  fun `clearScreenAndHistoryBuffers removes all images`() {
+    val session = TestSession(40, 10)
+    session.display.setInlineImageSizeOverride(InlineImageSize(5, 2))
+    session.process(oscInlineImage())
+
+    val buffer = session.terminalTextBuffer
+    assertEquals(1, buffer.getInlineImages(buffer.getLine(0)).size)
+
+    // ED 3 (clear screen and scrollback) = ESC[3J + ESC[2J + ESC[H
+    buffer.clearScreenAndHistoryBuffers()
+
+    assertEquals(0, buffer.maxInlineImageCellHeight)
+  }
+
+  @Test
+  fun `clearScreenBuffer removes screen images but not history images`() {
+    val session = TestSession(40, 5)
+    session.display.setInlineImageSizeOverride(InlineImageSize(5, 1))
+
+    // Place an image and scroll it into history
+    session.process(oscInlineImage())
+    for (i in 0 until 10) {
+      session.process("\r\n")
+    }
+    val buffer = session.terminalTextBuffer
+    assertTrue("Expected history lines", buffer.historyLinesCount > 0)
+
+    // Place another image on the current screen
+    session.display.setInlineImageSizeOverride(InlineImageSize(3, 1))
+    session.process(oscInlineImage())
+
+    buffer.clearScreenBuffer()
+
+    // History image should survive; screen image should be gone
+    var historyImageFound = false
+    for (i in 0 until buffer.historyLinesCount) {
+      val line = buffer.getLine(-(i + 1))
+      if (buffer.getInlineImages(line).isNotEmpty()) {
+        historyImageFound = true
+        break
+      }
+    }
+    assertTrue("History image should survive clearScreenBuffer", historyImageFound)
+  }
+
+  @Test
+  fun `alternate buffer save and restore preserves images`() {
+    val session = TestSession(40, 10)
+    session.display.setInlineImageSizeOverride(InlineImageSize(5, 2))
+    session.process(oscInlineImage())
+
+    val buffer = session.terminalTextBuffer
+    val lineBeforeAlt = buffer.getLine(0)
+    assertEquals(1, buffer.getInlineImages(lineBeforeAlt).size)
+
+    // Enter alternate buffer (DECSET 1049 = ESC[?1049h)
+    session.process("\u001b[?1049h")
+    assertTrue(buffer.isUsingAlternateBuffer)
+
+    // No images should be visible in alternate buffer
+    assertEquals(0, buffer.maxInlineImageCellHeight)
+
+    // Leave alternate buffer (DECRST 1049 = ESC[?1049l)
+    session.process("\u001b[?1049l")
+    assertFalse(buffer.isUsingAlternateBuffer)
+
+    // Images should be restored
+    val lineAfterAlt = buffer.getLine(0)
+    assertEquals(1, buffer.getInlineImages(lineAfterAlt).size)
+    assertTrue(buffer.maxInlineImageCellHeight > 0)
+  }
+
+  @Test
+  fun `zero dimension spec treated as unspecified`() {
+    // parseDimension should reject zero, so width=0 behaves like no width specified
+    val args = listOf("1337", "File=width=0;height=0;inline=1:$sampleBase64")
+    val cmd = InlineImageCommand.parse(args)
+    assertNull(cmd.widthSpec)
+    assertNull(cmd.heightSpec)
+  }
+
+  @Test
+  fun `negative dimension spec treated as unspecified`() {
+    val args = listOf("1337", "File=width=-5;height=-10px;inline=1:$sampleBase64")
+    val cmd = InlineImageCommand.parse(args)
+    assertNull(cmd.widthSpec)
+    assertNull(cmd.heightSpec)
+  }
 }

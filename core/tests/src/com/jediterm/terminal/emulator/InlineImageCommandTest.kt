@@ -122,4 +122,18 @@ class InlineImageCommandTest {
     assertEquals(InlineImageCommand.DimensionSpec.Pixels(200), InlineImageCommand.parseDimension("200px"))
     assertEquals(InlineImageCommand.DimensionSpec.Percent(100), InlineImageCommand.parseDimension("100%"))
   }
+
+  @Test
+  fun `parseDimension rejects zero values`() {
+    assertNull(InlineImageCommand.parseDimension("0"))
+    assertNull(InlineImageCommand.parseDimension("0px"))
+    assertNull(InlineImageCommand.parseDimension("0%"))
+  }
+
+  @Test
+  fun `parseDimension rejects negative values`() {
+    assertNull(InlineImageCommand.parseDimension("-1"))
+    assertNull(InlineImageCommand.parseDimension("-5px"))
+    assertNull(InlineImageCommand.parseDimension("-10%"))
+  }
 }
