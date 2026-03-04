@@ -820,6 +820,10 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
 
     gfx.fillRect(0, 0, getWidth(), getHeight());
 
+    // Pre-decode inline images outside the text buffer lock to avoid blocking the emulator thread
+    // during potentially slow ImageIO.read() calls.
+    preDecodeInlineImages();
+
     try {
       myTerminalTextBuffer.lock();
       // update myClientScrollOrigin as scrollArea might have been invoked after last WeakRedrawTimer action
@@ -1176,6 +1180,52 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
     return null;
   }
 
+  /**
+   * Pre-decode visible inline images outside the text buffer lock.
+   * This populates the decoded image cache so that drawInlineImages (called under lock) only
+   * does fast cache lookups instead of potentially slow ImageIO.read() calls.
+   */
+  private void preDecodeInlineImages() {
+    int maxImageHeight = myTerminalTextBuffer.getMaxInlineImageCellHeight();
+    if (maxImageHeight == 0) return;
+
+    // Collect images that need decoding under a brief lock hold.
+    List<InlineImage> toDecode = null;
+    myTerminalTextBuffer.lock();
+    try {
+      int startBufferLine = Math.max(-myTerminalTextBuffer.getHistoryLinesCount(),
+                                     myClientScrollOrigin - maxImageHeight + 1);
+      int endBufferLine = myClientScrollOrigin + myTermSize.getRows();
+      for (int bufferLine = startBufferLine; bufferLine < endBufferLine; bufferLine++) {
+        TerminalLine line = myTerminalTextBuffer.getLine(bufferLine);
+        List<InlineImagePlacement> placements = myTerminalTextBuffer.getInlineImages(line);
+        for (InlineImagePlacement p : placements) {
+          InlineImage image = p.getImage();
+          if (!myDecodedImageCache.containsKey(image)) {
+            if (toDecode == null) toDecode = new java.util.ArrayList<>();
+            toDecode.add(image);
+          }
+        }
+      }
+    } finally {
+      myTerminalTextBuffer.unlock();
+    }
+
+    // Decode outside the lock — this is the expensive part.
+    if (toDecode != null) {
+      for (InlineImage image : toDecode) {
+        try {
+          BufferedImage img = ImageIO.read(new ByteArrayInputStream(image.getImageData()));
+          if (img != null) {
+            myDecodedImageCache.put(image, img);
+          }
+        } catch (Exception e) {
+          LOG.warn("Failed to decode inline image", e);
+        }
+      }
+    }
+  }
+
   private void drawInlineImages(Graphics2D gfx) {
     // Scan lines that could have images visible on screen.
     // An image at line L with height H is visible if L + H - 1 >= scrollOrigin (bottom edge on/below top)
@@ -1210,18 +1260,9 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   }
 
   private @Nullable BufferedImage decodeAndCache(InlineImage inlineImage) {
-    BufferedImage img = myDecodedImageCache.get(inlineImage);
-    if (img == null) {
-      try {
-        img = ImageIO.read(new ByteArrayInputStream(inlineImage.getImageData()));
-        if (img != null) {
-          myDecodedImageCache.put(inlineImage, img);
-        }
-      } catch (Exception e) {
-        LOG.warn("Failed to decode inline image", e);
-      }
-    }
-    return img;
+    // Images should already be decoded by preDecodeInlineImages() outside the lock.
+    // This is just a cache lookup; no heavy decoding should happen here.
+    return myDecodedImageCache.get(inlineImage);
   }
 
   public void addTerminalMouseListener(final TerminalMouseListener listener) {
