@@ -47,13 +47,13 @@ import java.text.AttributedCharacterIterator;
 import java.text.BreakIterator;
 import java.text.CharacterIterator;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -70,6 +70,12 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private static final ScheduledExecutorService IMAGE_TIMEOUT_EXECUTOR =
       Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "jediterm-image-timeout");
+        t.setDaemon(true);
+        return t;
+      });
+  private static final ExecutorService IMAGE_DECODE_EXECUTOR =
+      Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "jediterm-image-decode");
         t.setDaemon(true);
         return t;
       });
@@ -147,13 +153,9 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private @Nullable TextStyle myCachedSelectionColor;
   private @Nullable TextStyle myCachedFoundPatternColor;
   private static final int DECODED_IMAGE_CACHE_MAX_SIZE = 64;
-  // Access-ordered LRU cache. Must only be accessed from the EDT.
-  private final Map<InlineImage, BufferedImage> myDecodedImageCache = new LinkedHashMap<>(32, 0.75f, true) {
-    @Override
-    protected boolean removeEldestEntry(Map.Entry<InlineImage, BufferedImage> eldest) {
-      return size() > DECODED_IMAGE_CACHE_MAX_SIZE;
-    }
-  };
+  // Thread-safe cache for decoded images. Written by the background decode thread,
+  // read by the EDT during painting. Uses ConcurrentHashMap for safe cross-thread access.
+  private final ConcurrentHashMap<InlineImage, BufferedImage> myDecodedImageCache = new ConcurrentHashMap<>();
 
   public TerminalPanel(@NotNull SettingsProvider settingsProvider, @NotNull TerminalTextBuffer terminalTextBuffer, @NotNull StyleState styleState) {
     mySettingsProvider = settingsProvider;
@@ -1218,18 +1220,26 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
       myTerminalTextBuffer.unlock();
     }
 
-    // Decode outside the lock — this is the expensive part.
+    // Decode on a background thread to avoid blocking the EDT with slow ImageIO.read() calls.
+    // Images not yet decoded will be skipped this frame and drawn on the next repaint.
     if (toDecode != null) {
-      for (InlineImage image : toDecode) {
-        try {
-          BufferedImage img = ImageIO.read(new ByteArrayInputStream(image.getImageData()));
-          if (img != null) {
-            myDecodedImageCache.put(image, img);
+      List<InlineImage> images = toDecode;
+      IMAGE_DECODE_EXECUTOR.submit(() -> {
+        for (InlineImage image : images) {
+          try {
+            BufferedImage img = ImageIO.read(new ByteArrayInputStream(image.getImageData()));
+            if (img != null) {
+              if (myDecodedImageCache.size() > DECODED_IMAGE_CACHE_MAX_SIZE) {
+                myDecodedImageCache.clear();
+              }
+              myDecodedImageCache.put(image, img);
+            }
+          } catch (Exception e) {
+            LOG.warn("Failed to decode inline image", e);
           }
-        } catch (Exception e) {
-          LOG.warn("Failed to decode inline image", e);
         }
-      }
+        SwingUtilities.invokeLater(() -> repaint());
+      });
     }
   }
 
