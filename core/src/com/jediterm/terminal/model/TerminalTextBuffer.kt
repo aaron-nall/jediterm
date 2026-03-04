@@ -225,6 +225,14 @@ class TerminalTextBuffer internal constructor(
         // Lines from non-top scroll regions are discarded, not moved to history
         removeInlineImagesForLines(deletedLines)
       }
+      // Remove images on lines above the scroll region whose visual span extends into it,
+      // since those rows now hold different content after the scroll.
+      myLock.lock()
+      try {
+        removeImagesOverlappingScrollRegion(scrollRegionTop - 1) // scrollRegionTop is 1-based
+      } finally {
+        myLock.unlock()
+      }
       fireModelChangeEvent()
     }
   }
@@ -623,6 +631,35 @@ class TerminalTextBuffer internal constructor(
     } finally {
       myLock.unlock()
     }
+  }
+
+  /**
+   * Remove images on lines above [scrollRegionTop] (0-based screen index) whose visual span
+   * (startLine + cellHeight) extends into or past the scroll region. These images would visually
+   * overlap content that has scrolled away, creating a detached overlay.
+   * Must be called with myLock held.
+   */
+  private fun removeImagesOverlappingScrollRegion(scrollRegionTop: Int) {
+    if (maxInlineImageCellHeight <= 1) return
+    var removed = false
+    for (row in 0 until scrollRegionTop) {
+      if (row >= screenLinesStorage.size) break
+      val line = screenLinesStorage[row]
+      val placements = inlineImages[line] ?: continue
+      val iter = placements.iterator()
+      while (iter.hasNext()) {
+        val p = iter.next()
+        // Image at screen row `row` spans rows [row, row + cellHeight - 1]
+        if (row + p.image.cellHeight - 1 >= scrollRegionTop) {
+          iter.remove()
+          removed = true
+        }
+      }
+      if (placements.isEmpty()) {
+        inlineImages.remove(line)
+      }
+    }
+    if (removed) recomputeMaxInlineImageCellHeight()
   }
 
   private fun removeInlineImagesForLines(lines: List<TerminalLine>) {
