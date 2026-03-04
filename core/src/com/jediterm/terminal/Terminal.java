@@ -3,6 +3,7 @@ package com.jediterm.terminal;
 import com.jediterm.core.Color;
 import com.jediterm.core.util.CellPosition;
 import com.jediterm.core.util.TermSize;
+import com.jediterm.terminal.emulator.InlineImageCommand;
 import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.StyleState;
@@ -186,5 +187,5 @@ public interface Terminal {
 
   default void processCustomCommand(@NotNull List<String> args) {}
 
-  default void processInlineImage(@NotNull com.jediterm.terminal.emulator.InlineImageCommand command) {}
+  default void processInlineImage(@NotNull InlineImageCommand command) {}
 }
