@@ -1139,6 +1139,8 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
 
       int cellWidth = Math.max(1, (int) Math.ceil((double) targetWidthPx / charWidth));
       int cellHeight = Math.max(1, (int) Math.ceil((double) targetHeightPx / charHeight));
+      cellWidth = Math.min(cellWidth, termSize.getColumns());
+      cellHeight = Math.min(cellHeight, termSize.getRows());
       return new InlineImageSize(cellWidth, cellHeight);
     } catch (Exception e) {
       LOG.warn("Failed to resolve inline image size", e);
