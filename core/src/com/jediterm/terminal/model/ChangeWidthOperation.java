@@ -212,7 +212,9 @@ class ChangeWidthOperation {
     });
     if (myFirstNewLineCaptured) {
       myOldToNewLine.put(line, myFirstNewLineForOldLine);
-      myOldToNewColumnOffset.put(line, myColumnOffsetForOldLine - leadingNulColumns[0]);
+      // Clamp to 0: a negative offset means leading NUL columns consumed more space than the
+      // reflow position provided, so the image's original column has no valid mapping on the new line.
+      myOldToNewColumnOffset.put(line, Math.max(0, myColumnOffsetForOldLine - leadingNulColumns[0]));
     } else {
       // All entries were null — treat like an empty line
       TerminalLine emptyLine = TerminalLine.createEmpty();
