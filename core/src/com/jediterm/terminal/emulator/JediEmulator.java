@@ -342,7 +342,7 @@ public class JediEmulator extends DataStreamIteratingEmulator {
     } catch (IllegalArgumentException e) {
       LOG.warn("Failed to parse inline image command", e);
       return true;
-    } catch (IOException e) {
+    } catch (RuntimeException e) {
       LOG.warn("Failed to process inline image", e);
       return true;
     }
