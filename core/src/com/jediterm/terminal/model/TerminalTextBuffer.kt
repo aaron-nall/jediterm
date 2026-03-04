@@ -213,7 +213,11 @@ class TerminalTextBuffer internal constructor(
    * @param scrollRegionTop 1-based top row of the scroll region
    * @param scrollRegionBottom 1-based bottom row of the scroll region (exclusive for insertLines/deleteLines)
    */
+  /**
+   * Must be called with [myLock] held (via [lock] or [modify]).
+   */
   fun scrollArea(scrollRegionTop: Int, dy: Int, scrollRegionBottom: Int) {
+    check((myLock as ReentrantLock).isHeldByCurrentThread) { "scrollArea requires the text buffer lock to be held" }
     if (dy == 0) {
       return
     }
@@ -401,7 +405,11 @@ class TerminalTextBuffer internal constructor(
     fireModelChangeEvent()
   }
 
+  /**
+   * Must be called with [myLock] held (via [lock] or [modify]).
+   */
   fun insertLines(y: Int, count: Int, scrollRegionBottom: Int) {
+    check((myLock as ReentrantLock).isHeldByCurrentThread) { "insertLines requires the text buffer lock to be held" }
     // Capture lines that will be pushed past the scroll region bottom so we can
     // clean up their inline images (insertLines drops them without returning them).
     val lastLine = scrollRegionBottom - 1
