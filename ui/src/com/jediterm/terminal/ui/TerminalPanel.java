@@ -47,6 +47,7 @@ import java.text.BreakIterator;
 import java.text.CharacterIterator;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.WeakHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -128,7 +129,7 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private boolean myFillCharacterBackgroundIncludingLineSpacing;
   private @Nullable TextStyle myCachedSelectionColor;
   private @Nullable TextStyle myCachedFoundPatternColor;
-  private final Map<InlineImage, SoftReference<BufferedImage>> myDecodedImageCache = new HashMap<>();
+  private final Map<InlineImage, SoftReference<BufferedImage>> myDecodedImageCache = new WeakHashMap<>();
 
   public TerminalPanel(@NotNull SettingsProvider settingsProvider, @NotNull TerminalTextBuffer terminalTextBuffer, @NotNull StyleState styleState) {
     mySettingsProvider = settingsProvider;
