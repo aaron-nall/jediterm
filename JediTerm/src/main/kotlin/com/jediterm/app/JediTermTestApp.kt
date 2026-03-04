@@ -53,14 +53,31 @@ private fun parseArgs(args: Array<String>): Config {
 
   var i = 0
   while (i < args.size) {
-    when (args[i]) {
-      "--help" -> { printHelp(); kotlin.system.exitProcess(0) }
-      "--font-family" -> { fontFamily = args.nextArg(i); i++ }
-      "--font-size" -> { fontSize = args.nextArg(i).toFloat(); i++ }
-      "--bg" -> { bg = parseColor(args.nextArg(i)); i++ }
-      "--fg" -> { fg = parseColor(args.nextArg(i)); i++ }
-      "--command" -> { command = args.nextArg(i); i++ }
-      else -> System.err.println("Unknown option: ${args[i]}")
+    try {
+      when (args[i]) {
+        "--help" -> { printHelp(); kotlin.system.exitProcess(0) }
+        "--font-family" -> { fontFamily = args.nextArg(i); i++ }
+        "--font-size" -> {
+          val value = args.nextArg(i)
+          fontSize = value.toFloatOrNull()
+            ?: error("Invalid font size: $value (expected a number)")
+          i++
+        }
+        "--bg" -> { bg = parseColor(args.nextArg(i)); i++ }
+        "--fg" -> { fg = parseColor(args.nextArg(i)); i++ }
+        "--command" -> { command = args.nextArg(i); i++ }
+        else -> {
+          System.err.println("Error: Unknown option: ${args[i]}")
+          printHelp()
+          kotlin.system.exitProcess(1)
+        }
+      }
+    } catch (e: IllegalArgumentException) {
+      System.err.println("Error: ${e.message}")
+      kotlin.system.exitProcess(1)
+    } catch (e: IllegalStateException) {
+      System.err.println("Error: ${e.message}")
+      kotlin.system.exitProcess(1)
     }
     i++
   }
