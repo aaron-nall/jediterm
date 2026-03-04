@@ -54,6 +54,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -62,6 +66,13 @@ import static com.jediterm.terminal.ui.UtilKt.isWindows;
 public class TerminalPanel extends JComponent implements TerminalDisplay, TerminalActionProvider {
   private static final Logger LOG = LoggerFactory.getLogger(TerminalPanel.class);
   private static final long serialVersionUID = -1048763516632093014L;
+  private static final long IMAGE_HEADER_TIMEOUT_MS = 5000;
+  private static final ScheduledExecutorService IMAGE_TIMEOUT_EXECUTOR =
+      Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "jediterm-image-timeout");
+        t.setDaemon(true);
+        return t;
+      });
 
   public static final double SCROLL_SPEED = 0.05;
 
@@ -1089,11 +1100,15 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
         Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
         if (!readers.hasNext()) return null;
         ImageReader reader = readers.next();
+        // Schedule an abort in case the reader hangs on malformed data.
+        ScheduledFuture<?> abortTask = IMAGE_TIMEOUT_EXECUTOR.schedule(
+            reader::abort, IMAGE_HEADER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         try {
-          reader.setInput(iis);
+          reader.setInput(iis, true, true);
           imgWidth = reader.getWidth(0);
           imgHeight = reader.getHeight(0);
         } finally {
+          abortTask.cancel(false);
           reader.dispose();
         }
       }
