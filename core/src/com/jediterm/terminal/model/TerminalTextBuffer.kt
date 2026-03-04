@@ -223,6 +223,9 @@ class TerminalTextBuffer internal constructor(
     }
     if (dy > 0) {
       insertLines(scrollRegionTop - 1, dy, scrollRegionBottom) // convert to 0-based y
+      // Remove images on lines above the scroll region whose visual span extends into it,
+      // since those rows now hold different content after the downward scroll.
+      removeImagesOverlappingScrollRegion(scrollRegionTop - 1) // scrollRegionTop is 1-based
     }
     else {
       val deletedLines = deleteLines(scrollRegionTop - 1, -dy, scrollRegionBottom)
