@@ -388,7 +388,9 @@ class TerminalTextBuffer internal constructor(
   fun clearLines(startRow: Int, endRow: Int) {
     val filler = createFillerEntry()
     for (ind in startRow..endRow) {
-      screenLinesStorage[ind].clear(filler)
+      val line = screenLinesStorage[ind]
+      inlineImages.remove(line)
+      line.clear(filler)
       setLineWrapped(ind, false)
     }
     fireModelChangeEvent()
@@ -456,6 +458,9 @@ class TerminalTextBuffer internal constructor(
   fun clearHistory() {
     modify {
       val lineCount = historyLinesStorage.size
+      for (i in 0 until lineCount) {
+        inlineImages.remove(historyLinesStorage[i])
+      }
       historyLinesStorage.clear()
       if (lineCount > 0) {
         fireHistoryBufferLineCountChanged()
