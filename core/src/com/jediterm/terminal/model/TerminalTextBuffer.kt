@@ -674,7 +674,9 @@ class TerminalTextBuffer internal constructor(
     }
   }
 
+  /** Must be called with [myLock] held. */
   private fun recomputeMaxInlineImageCellHeight() {
+    check((myLock as ReentrantLock).isHeldByCurrentThread) { "recomputeMaxInlineImageCellHeight requires the text buffer lock" }
     var max = 0
     for (placements in inlineImages.values) {
       for (p in placements) {
