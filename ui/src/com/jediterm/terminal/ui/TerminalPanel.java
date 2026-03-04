@@ -1131,6 +1131,7 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
       if (charWidth <= 0 || charHeight <= 0) return null;
 
       TermSize termSize = myTermSize;
+      if (termSize == null) return null;
       int termWidthPx = termSize.getColumns() * charWidth;
       int termHeightPx = termSize.getRows() * charHeight;
 
