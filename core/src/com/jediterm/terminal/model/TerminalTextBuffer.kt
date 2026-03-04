@@ -610,6 +610,7 @@ class TerminalTextBuffer internal constructor(
     }
   }
 
+  /** Adds an inline image placement for the given line. Thread-safe: acquires [myLock] internally. */
   fun addInlineImage(line: TerminalLine, placement: InlineImagePlacement) {
     myLock.lock()
     try {
@@ -623,6 +624,7 @@ class TerminalTextBuffer internal constructor(
     }
   }
 
+  /** Returns a snapshot of inline image placements for the given line. Thread-safe: acquires [myLock] internally. */
   fun getInlineImages(line: TerminalLine): List<InlineImagePlacement> {
     myLock.lock()
     try {
