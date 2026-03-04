@@ -231,12 +231,7 @@ class TerminalTextBuffer internal constructor(
       }
       // Remove images on lines above the scroll region whose visual span extends into it,
       // since those rows now hold different content after the scroll.
-      myLock.lock()
-      try {
-        removeImagesOverlappingScrollRegion(scrollRegionTop - 1) // scrollRegionTop is 1-based
-      } finally {
-        myLock.unlock()
-      }
+      removeImagesOverlappingScrollRegion(scrollRegionTop - 1) // scrollRegionTop is 1-based
       fireModelChangeEvent()
     }
   }
@@ -614,29 +609,19 @@ class TerminalTextBuffer internal constructor(
     }
   }
 
-  /** Adds an inline image placement for the given line. Thread-safe: acquires [myLock] internally. */
+  /** Adds an inline image placement for the given line. Must be called with the text buffer lock held. */
   fun addInlineImage(line: TerminalLine, placement: InlineImagePlacement) {
-    myLock.lock()
-    try {
-      inlineImages.getOrPut(line) { mutableListOf() }.add(placement)
-      if (placement.image.cellHeight > maxInlineImageCellHeight) {
-        maxInlineImageCellHeight = placement.image.cellHeight
-      }
-      evictOldestInlineImages()
-    } finally {
-      myLock.unlock()
+    inlineImages.getOrPut(line) { mutableListOf() }.add(placement)
+    if (placement.image.cellHeight > maxInlineImageCellHeight) {
+      maxInlineImageCellHeight = placement.image.cellHeight
     }
+    evictOldestInlineImages()
   }
 
-  /** Returns a snapshot of inline image placements for the given line. Thread-safe: acquires [myLock] internally. */
+  /** Returns a snapshot of inline image placements for the given line. Must be called with the text buffer lock held. */
   fun getInlineImages(line: TerminalLine): List<InlineImagePlacement> {
-    myLock.lock()
-    try {
-      val placements = inlineImages[line] ?: return emptyList()
-      return ArrayList(placements)
-    } finally {
-      myLock.unlock()
-    }
+    val placements = inlineImages[line] ?: return emptyList()
+    return ArrayList(placements)
   }
 
   /**
@@ -668,20 +653,16 @@ class TerminalTextBuffer internal constructor(
     if (removed) recomputeMaxInlineImageCellHeight()
   }
 
+  /** Must be called with the text buffer lock held. */
   private fun removeInlineImagesForLines(lines: List<TerminalLine>) {
-    myLock.lock()
-    try {
-      var removed = false
-      for (line in lines) {
-        if (inlineImages.remove(line) != null) {
-          removed = true
-        }
+    var removed = false
+    for (line in lines) {
+      if (inlineImages.remove(line) != null) {
+        removed = true
       }
-      if (removed) {
-        recomputeMaxInlineImageCellHeight()
-      }
-    } finally {
-      myLock.unlock()
+    }
+    if (removed) {
+      recomputeMaxInlineImageCellHeight()
     }
   }
 
@@ -708,40 +689,32 @@ class TerminalTextBuffer internal constructor(
     recomputeMaxInlineImageCellHeight()
   }
 
+  /** Must be called with the text buffer lock held. */
   internal fun remapInlineImages(lineMapping: Map<TerminalLine, TerminalLine>, columnOffsets: Map<TerminalLine, Int>, newWidth: Int) {
-    myLock.lock()
-    try {
-      val newMap: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = LinkedHashMap()
-      for ((oldLine, placements) in inlineImages) {
-        val newLine = lineMapping[oldLine] ?: continue
-        val offset = columnOffsets[oldLine] ?: 0
-        val newPlacements = newMap.getOrPut(newLine) { mutableListOf() }
-        for (p in placements) {
-          val newStartColumn = (p.startColumn + offset).coerceIn(0, maxOf(0, newWidth - 1))
-          newPlacements.add(InlineImagePlacement(p.image, newStartColumn))
-        }
+    val newMap: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = LinkedHashMap()
+    for ((oldLine, placements) in inlineImages) {
+      val newLine = lineMapping[oldLine] ?: continue
+      val offset = columnOffsets[oldLine] ?: 0
+      val newPlacements = newMap.getOrPut(newLine) { mutableListOf() }
+      for (p in placements) {
+        val newStartColumn = (p.startColumn + offset).coerceIn(0, maxOf(0, newWidth - 1))
+        newPlacements.add(InlineImagePlacement(p.image, newStartColumn))
       }
-      inlineImages = newMap
-      recomputeMaxInlineImageCellHeight()
-    } finally {
-      myLock.unlock()
     }
+    inlineImages = newMap
+    recomputeMaxInlineImageCellHeight()
   }
 
+  /** Must be called with the text buffer lock held. */
   internal fun transferInlineImages(oldLine: TerminalLine, newLine: TerminalLine, newWidth: Int) {
-    myLock.lock()
-    try {
-      val placements = inlineImages.remove(oldLine) ?: return
-      val filtered = placements.filterTo(mutableListOf()) { it.startColumn < newWidth }
-      if (filtered.isNotEmpty()) {
-        inlineImages[newLine] = filtered
-      }
-      // Always recompute: removing the old entry may have removed the tallest image,
-      // and filtering may have changed which placements survive.
-      recomputeMaxInlineImageCellHeight()
-    } finally {
-      myLock.unlock()
+    val placements = inlineImages.remove(oldLine) ?: return
+    val filtered = placements.filterTo(mutableListOf()) { it.startColumn < newWidth }
+    if (filtered.isNotEmpty()) {
+      inlineImages[newLine] = filtered
     }
+    // Always recompute: removing the old entry may have removed the tallest image,
+    // and filtering may have changed which placements survive.
+    recomputeMaxInlineImageCellHeight()
   }
 
   companion object {
