@@ -140,6 +140,7 @@ private fun createAndShowGUI(config: Config) {
   frame.addWindowListener(object : WindowAdapter() {
     override fun windowClosing(e: WindowEvent) {
       frame.isVisible = false
+      widget.close()
       widget.ttyConnector.close()
     }
   })
