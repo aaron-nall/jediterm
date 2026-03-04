@@ -613,6 +613,7 @@ class TerminalTextBuffer internal constructor(
 
   /** Adds an inline image placement for the given line. Must be called with the text buffer lock held. */
   fun addInlineImage(line: TerminalLine, placement: InlineImagePlacement) {
+    check((myLock as ReentrantLock).isHeldByCurrentThread) { "addInlineImage requires the text buffer lock to be held" }
     inlineImages.getOrPut(line) { mutableListOf() }.add(placement)
     if (placement.image.cellHeight > maxInlineImageCellHeight) {
       maxInlineImageCellHeight = placement.image.cellHeight
