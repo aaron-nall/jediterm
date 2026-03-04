@@ -74,8 +74,12 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private int myDescent = 0;
   private int mySpaceBetweenLines = 0;
   protected final Dimension myCharSize = new Dimension();
+  // Volatile snapshots of char dimensions and term size for safe cross-thread reads
+  // (e.g. from the emulator thread in resolveInlineImageSize).
+  private volatile int myVolatileCharWidth;
+  private volatile int myVolatileCharHeight;
   private boolean myMonospaced;
-  private TermSize myTermSize;
+  private volatile TermSize myTermSize;
   private boolean myInitialSizeSyncDone = false;
 
   private TerminalStarter myTerminalStarter = null;
@@ -712,6 +716,8 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
     myCharSize.width = fo.charWidth('W');
     int fontMetricsHeight = fo.getHeight();
     myCharSize.height = (int)Math.ceil(fontMetricsHeight * lineSpacing);
+    myVolatileCharWidth = myCharSize.width;
+    myVolatileCharHeight = myCharSize.height;
     mySpaceBetweenLines = Math.max(0, ((myCharSize.height - fontMetricsHeight) / 2) * 2);
     myDescent = fo.getDescent();
     if (LOG.isDebugEnabled()) {
@@ -1088,12 +1094,14 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
 
       if (imgWidth <= 0 || imgHeight <= 0) return null;
 
-      int charWidth = myCharSize.width;
-      int charHeight = myCharSize.height;
+      // Use volatile snapshots for safe cross-thread reads from the emulator thread.
+      int charWidth = myVolatileCharWidth;
+      int charHeight = myVolatileCharHeight;
       if (charWidth <= 0 || charHeight <= 0) return null;
 
-      int termWidthPx = myTermSize.getColumns() * charWidth;
-      int termHeightPx = myTermSize.getRows() * charHeight;
+      TermSize termSize = myTermSize;
+      int termWidthPx = termSize.getColumns() * charWidth;
+      int termHeightPx = termSize.getRows() * charHeight;
 
       Integer targetWidthPx = resolveDimensionPx(widthSpec, charWidth, termWidthPx);
       Integer targetHeightPx = resolveDimensionPx(heightSpec, charHeight, termHeightPx);
