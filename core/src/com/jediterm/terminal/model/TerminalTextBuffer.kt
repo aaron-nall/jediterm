@@ -61,9 +61,12 @@ class TerminalTextBuffer internal constructor(
 
   private val myLock: Lock = ReentrantLock()
 
-  // Sideband map for inline images, keyed by TerminalLine identity
-  private var inlineImages: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = HashMap()
+  // Sideband map for inline images, keyed by TerminalLine identity.
+  // Uses LinkedHashMap to maintain insertion order for eviction.
+  private var inlineImages: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = LinkedHashMap()
   private var inlineImagesBackup: MutableMap<TerminalLine, MutableList<InlineImagePlacement>>? = null
+  // Maximum number of lines that can have inline image placements before evicting oldest entries.
+  private val maxInlineImageLines = 256
   // Tracks the maximum cell height of any inline image, used to limit paint scan range
   @Volatile
   var maxInlineImageCellHeight: Int = 0
@@ -351,7 +354,7 @@ class TerminalTextBuffer internal constructor(
         myLock.lock()
         try {
           inlineImagesBackup = inlineImages
-          inlineImages = HashMap()
+          inlineImages = LinkedHashMap()
           maxInlineImageCellHeight = 0
         } finally {
           myLock.unlock()
@@ -606,6 +609,7 @@ class TerminalTextBuffer internal constructor(
       if (placement.image.cellHeight > maxInlineImageCellHeight) {
         maxInlineImageCellHeight = placement.image.cellHeight
       }
+      evictOldestInlineImages()
     } finally {
       myLock.unlock()
     }
@@ -650,10 +654,21 @@ class TerminalTextBuffer internal constructor(
     maxInlineImageCellHeight = max
   }
 
+  /** Evict oldest inline image entries when the map exceeds the limit. Must be called with myLock held. */
+  private fun evictOldestInlineImages() {
+    if (inlineImages.size <= maxInlineImageLines) return
+    val iter = inlineImages.iterator()
+    while (inlineImages.size > maxInlineImageLines && iter.hasNext()) {
+      iter.next()
+      iter.remove()
+    }
+    recomputeMaxInlineImageCellHeight()
+  }
+
   internal fun remapInlineImages(lineMapping: Map<TerminalLine, TerminalLine>, columnOffsets: Map<TerminalLine, Int>, newWidth: Int) {
     myLock.lock()
     try {
-      val newMap: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = HashMap()
+      val newMap: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = LinkedHashMap()
       for ((oldLine, placements) in inlineImages) {
         val newLine = lineMapping[oldLine] ?: continue
         val offset = columnOffsets[oldLine] ?: 0
