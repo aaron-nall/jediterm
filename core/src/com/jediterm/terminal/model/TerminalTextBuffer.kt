@@ -209,12 +209,16 @@ class TerminalTextBuffer internal constructor(
     changesMulticaster.linesChanged(fromIndex = y - 1)
   }
 
+  /**
+   * @param scrollRegionTop 1-based top row of the scroll region
+   * @param scrollRegionBottom 1-based bottom row of the scroll region (exclusive for insertLines/deleteLines)
+   */
   fun scrollArea(scrollRegionTop: Int, dy: Int, scrollRegionBottom: Int) {
     if (dy == 0) {
       return
     }
     if (dy > 0) {
-      insertLines(scrollRegionTop - 1, dy, scrollRegionBottom)
+      insertLines(scrollRegionTop - 1, dy, scrollRegionBottom) // convert to 0-based y
     }
     else {
       val deletedLines = deleteLines(scrollRegionTop - 1, -dy, scrollRegionBottom)

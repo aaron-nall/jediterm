@@ -349,7 +349,7 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
         return; // display doesn't support inline images
       }
 
-      int startColumn = myCursorX;
+      int startColumn = myCursorX; // 0-based column
       int cellWidth = Math.min(resolvedSize.getCellWidth(), myTerminalWidth - startColumn);
       int cellHeight = resolvedSize.getCellHeight();
       if (cellWidth <= 0 || cellHeight <= 0) {
@@ -358,25 +358,28 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
 
       InlineImage image = new InlineImage(command.getImageData(), cellWidth, cellHeight);
 
-      // Place the image on the first line at cursor position
+      // Place the image on the first line at cursor position.
+      // myCursorY is 1-based; getLine expects 0-based, hence -1.
       TerminalLine firstLine = myTerminalTextBuffer.getLine(myCursorY - 1);
+      // startColumn is 0-based, matching InlineImagePlacement convention.
       InlineImagePlacement placement = new InlineImagePlacement(image, startColumn);
       myTerminalTextBuffer.addInlineImage(firstLine, placement);
 
-      // Write placeholder spaces for each row the image occupies
+      // Write placeholder spaces for each row the image occupies.
+      // writeString expects 0-based x and 1-based y (myCursorX and myCursorY).
       String spaceLine = " ".repeat(cellWidth);
       for (int row = 0; row < cellHeight; row++) {
         if (row > 0) {
-          myCursorY += 1;
+          myCursorY += 1; // 1-based
           scrollY();
         }
-        myCursorX = startColumn;
+        myCursorX = startColumn; // 0-based
         myTerminalTextBuffer.writeString(myCursorX, myCursorY, new CharBuffer(spaceLine));
       }
 
       // Move cursor past the image
-      myCursorX = 0;
-      myCursorY += 1;
+      myCursorX = 0;       // 0-based
+      myCursorY += 1;      // 1-based
       scrollY();
       finishText();
     } finally {
