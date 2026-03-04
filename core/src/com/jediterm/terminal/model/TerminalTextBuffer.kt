@@ -678,13 +678,29 @@ class TerminalTextBuffer internal constructor(
     maxInlineImageCellHeight = max
   }
 
-  /** Evict oldest inline image entries when the map exceeds the limit. Must be called with myLock held. */
+  /** Evict inline image entries when the map exceeds the limit, preferring off-screen lines. Must be called with the text buffer lock held. */
   private fun evictOldestInlineImages() {
     if (inlineImages.size <= maxInlineImageLines) return
+    // Build a set of lines currently on screen for quick lookup.
+    val screenLines = HashSet<TerminalLine>(screenLinesStorage.size)
+    for (i in 0 until screenLinesStorage.size) {
+      screenLines.add(screenLinesStorage[i])
+    }
+    // First pass: evict off-screen entries (oldest first, LinkedHashMap iteration order).
     val iter = inlineImages.iterator()
     while (inlineImages.size > maxInlineImageLines && iter.hasNext()) {
-      iter.next()
-      iter.remove()
+      val entry = iter.next()
+      if (entry.key !in screenLines) {
+        iter.remove()
+      }
+    }
+    // Second pass: if still over limit, evict oldest regardless of screen presence.
+    if (inlineImages.size > maxInlineImageLines) {
+      val iter2 = inlineImages.iterator()
+      while (inlineImages.size > maxInlineImageLines && iter2.hasNext()) {
+        iter2.next()
+        iter2.remove()
+      }
     }
     recomputeMaxInlineImageCellHeight()
   }
