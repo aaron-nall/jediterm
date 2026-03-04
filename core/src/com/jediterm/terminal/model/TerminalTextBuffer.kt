@@ -64,6 +64,10 @@ class TerminalTextBuffer internal constructor(
   // Sideband map for inline images, keyed by TerminalLine identity
   private var inlineImages: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = HashMap()
   private var inlineImagesBackup: MutableMap<TerminalLine, MutableList<InlineImagePlacement>>? = null
+  // Tracks the maximum cell height of any inline image, used to limit paint scan range
+  @Volatile
+  var maxInlineImageCellHeight: Int = 0
+    private set
 
   // The state of the main buffer's screen and history at the moment of entering the alternate buffer.
   private var historyLinesStorageBackup: LinesStorage? = null
@@ -549,6 +553,9 @@ class TerminalTextBuffer internal constructor(
 
   fun addInlineImage(line: TerminalLine, placement: InlineImagePlacement) {
     inlineImages.getOrPut(line) { mutableListOf() }.add(placement)
+    if (placement.image.cellHeight > maxInlineImageCellHeight) {
+      maxInlineImageCellHeight = placement.image.cellHeight
+    }
   }
 
   fun getInlineImages(line: TerminalLine): List<InlineImagePlacement> {

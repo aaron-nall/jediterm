@@ -1142,11 +1142,13 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   }
 
   private void drawInlineImages(Graphics2D gfx) {
-    // Scan all lines from history start to the end of the visible screen.
-    // An image whose origin line has scrolled off the top may still be partially visible
-    // if it's tall enough, so we cannot limit the lookback to terminal height.
-    // The getInlineImages() call is an O(1) HashMap lookup returning empty for most lines.
-    int startBufferLine = -myTerminalTextBuffer.getHistoryLinesCount();
+    // Scan lines that could have images visible on screen.
+    // An image at line L with height H is visible if L + H - 1 >= scrollOrigin (bottom edge on/below top)
+    // So we need L >= scrollOrigin - maxImageHeight + 1.
+    int maxImageHeight = myTerminalTextBuffer.getMaxInlineImageCellHeight();
+    if (maxImageHeight == 0) return; // no images exist
+    int startBufferLine = Math.max(-myTerminalTextBuffer.getHistoryLinesCount(),
+                                   myClientScrollOrigin - maxImageHeight + 1);
     int endBufferLine = myClientScrollOrigin + myTermSize.getRows();
     for (int bufferLine = startBufferLine; bufferLine < endBufferLine; bufferLine++) {
       TerminalLine line = myTerminalTextBuffer.getLine(bufferLine);
