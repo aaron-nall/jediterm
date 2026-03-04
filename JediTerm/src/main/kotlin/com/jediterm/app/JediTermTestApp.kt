@@ -39,16 +39,22 @@ private fun parseArgs(args: Array<String>): Config {
   var i = 0
   while (i < args.size) {
     when (args[i]) {
-      "--font-family" -> fontFamily = args[++i]
-      "--font-size" -> fontSize = args[++i].toFloat()
-      "--bg" -> bg = parseColor(args[++i])
-      "--fg" -> fg = parseColor(args[++i])
-      "--command" -> command = args[++i]
+      "--font-family" -> fontFamily = args.nextArg(i++)
+      "--font-size" -> fontSize = args.nextArg(i++).toFloat()
+      "--bg" -> bg = parseColor(args.nextArg(i++))
+      "--fg" -> fg = parseColor(args.nextArg(i++))
+      "--command" -> command = args.nextArg(i++)
       else -> System.err.println("Unknown option: ${args[i]}")
     }
     i++
   }
   return Config(fontFamily, fontSize, bg, fg, command)
+}
+
+private fun Array<String>.nextArg(flagIndex: Int): String {
+  val valueIndex = flagIndex + 1
+  require(valueIndex < size) { "Option ${this[flagIndex]} requires a value" }
+  return this[valueIndex]
 }
 
 private fun parseColor(hex: String): Color {
