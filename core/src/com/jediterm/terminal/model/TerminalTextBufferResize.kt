@@ -150,7 +150,7 @@ private fun truncateToSize(
     val newLine = line.truncateToLen(newSize.columns)
     newLines.add(newLine)
     if (newLine !== line) {
-      buffer.transferInlineImages(line, newLine)
+      buffer.transferInlineImages(line, newLine, newSize.columns)
     }
   }
 

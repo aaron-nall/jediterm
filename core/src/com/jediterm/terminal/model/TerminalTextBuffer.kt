@@ -588,10 +588,11 @@ class TerminalTextBuffer internal constructor(
     inlineImages = newMap
   }
 
-  internal fun transferInlineImages(oldLine: TerminalLine, newLine: TerminalLine) {
-    val placements = inlineImages.remove(oldLine)
-    if (placements != null) {
-      inlineImages[newLine] = placements
+  internal fun transferInlineImages(oldLine: TerminalLine, newLine: TerminalLine, newWidth: Int) {
+    val placements = inlineImages.remove(oldLine) ?: return
+    val filtered = placements.filterTo(mutableListOf()) { it.startColumn < newWidth }
+    if (filtered.isNotEmpty()) {
+      inlineImages[newLine] = filtered
     }
   }
 
