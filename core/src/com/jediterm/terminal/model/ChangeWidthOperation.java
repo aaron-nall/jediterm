@@ -174,10 +174,18 @@ class ChangeWidthOperation {
       myOldToNewColumnOffset.put(line, 0);
       return;
     }
+    // Track the number of null columns at the start of this old line.
+    // These columns are skipped during reflow but shift image positions in the old coordinate system.
+    final int[] leadingNulColumns = {0};
+    final boolean[] seenNonNul = {false};
     line.forEachEntry(entry -> {
       if (entry.isNul()) {
+        if (!seenNonNul[0]) {
+          leadingNulColumns[0] += entry.getLength();
+        }
         return;
       }
+      seenNonNul[0] = true;
       int entryProcessedLength = 0;
       while (entryProcessedLength < entry.getLength()) {
         if (myCurrentLine != null && myCurrentLineLength == myNewWidth) {
@@ -204,7 +212,7 @@ class ChangeWidthOperation {
     });
     if (myFirstNewLineCaptured) {
       myOldToNewLine.put(line, myFirstNewLineForOldLine);
-      myOldToNewColumnOffset.put(line, myColumnOffsetForOldLine);
+      myOldToNewColumnOffset.put(line, myColumnOffsetForOldLine - leadingNulColumns[0]);
     } else {
       // All entries were null — treat like an empty line
       TerminalLine emptyLine = TerminalLine.createEmpty();
