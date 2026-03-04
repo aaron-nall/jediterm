@@ -380,7 +380,19 @@ class TerminalTextBuffer internal constructor(
   }
 
   fun insertLines(y: Int, count: Int, scrollRegionBottom: Int) {
-    screenLinesStorage.insertLines(y, count, scrollRegionBottom - 1, createFillerEntry())
+    // Capture lines that will be pushed past the scroll region bottom so we can
+    // clean up their inline images (insertLines drops them without returning them).
+    val lastLine = scrollRegionBottom - 1
+    val displacedCount = min(count, lastLine - y + 1)
+    val displacedLines = ArrayList<TerminalLine>(displacedCount)
+    for (i in 0 until displacedCount) {
+      val idx = lastLine - displacedCount + 1 + i
+      if (idx < screenLinesStorage.size) {
+        displacedLines.add(screenLinesStorage[idx])
+      }
+    }
+    screenLinesStorage.insertLines(y, count, lastLine, createFillerEntry())
+    removeInlineImagesForLines(displacedLines)
     fireModelChangeEvent()
     changesMulticaster.linesChanged(fromIndex = y)
   }
