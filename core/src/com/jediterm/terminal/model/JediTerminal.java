@@ -337,18 +337,19 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
 
   @Override
   public void processInlineImage(@NotNull InlineImageCommand command) {
+    // Resolve image size outside the lock to avoid blocking the EDT on image I/O.
+    InlineImageSize resolvedSize = myDisplay.resolveInlineImageSize(
+      command.getImageData(),
+      command.getWidthSpec(),
+      command.getHeightSpec(),
+      command.getPreserveAspectRatio()
+    );
+    if (resolvedSize == null) {
+      return; // display doesn't support inline images
+    }
+
     myTerminalTextBuffer.lock();
     try {
-      InlineImageSize resolvedSize = myDisplay.resolveInlineImageSize(
-        command.getImageData(),
-        command.getWidthSpec(),
-        command.getHeightSpec(),
-        command.getPreserveAspectRatio()
-      );
-      if (resolvedSize == null) {
-        return; // display doesn't support inline images
-      }
-
       int startColumn = myCursorX; // 0-based column
       int cellWidth = Math.min(resolvedSize.getCellWidth(), myTerminalWidth - startColumn);
       int cellHeight = resolvedSize.getCellHeight();
