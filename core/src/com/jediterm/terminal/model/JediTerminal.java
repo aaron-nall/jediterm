@@ -9,6 +9,7 @@ import com.jediterm.core.input.MouseWheelEvent;
 import com.jediterm.core.util.CellPosition;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.*;
+import com.jediterm.terminal.emulator.InlineImageCommand;
 import com.jediterm.terminal.emulator.charset.CharacterSet;
 import com.jediterm.terminal.emulator.charset.GraphicSet;
 import com.jediterm.terminal.emulator.charset.GraphicSetState;
@@ -335,7 +336,7 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
   }
 
   @Override
-  public void processInlineImage(@NotNull com.jediterm.terminal.emulator.InlineImageCommand command) {
+  public void processInlineImage(@NotNull InlineImageCommand command) {
     myTerminalTextBuffer.lock();
     try {
       InlineImageSize resolvedSize = myDisplay.resolveInlineImageSize(
