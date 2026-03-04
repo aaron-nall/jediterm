@@ -1152,7 +1152,7 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
     int endBufferLine = myClientScrollOrigin + myTermSize.getRows();
     for (int bufferLine = startBufferLine; bufferLine < endBufferLine; bufferLine++) {
       TerminalLine line = myTerminalTextBuffer.getLine(bufferLine);
-      java.util.List<InlineImagePlacement> placements = myTerminalTextBuffer.getInlineImages(line);
+      List<InlineImagePlacement> placements = myTerminalTextBuffer.getInlineImages(line);
       for (InlineImagePlacement p : placements) {
         int originScreenRow = bufferLine - myClientScrollOrigin;
         int imageBottomRow = originScreenRow + p.getImage().getCellHeight() - 1;
