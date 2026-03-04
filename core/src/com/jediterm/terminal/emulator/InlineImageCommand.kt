@@ -17,6 +17,9 @@ class InlineImageCommand(
   }
 
   companion object {
+    /** Maximum decoded image data size (25 MB). */
+    const val MAX_IMAGE_DATA_SIZE: Int = 25 * 1024 * 1024
+
     /**
      * Parse an OSC 1337 File= command from SystemCommandSequence args.
      *
@@ -62,6 +65,9 @@ class InlineImageCommand(
       val inline = params["inline"]?.let { it == "1" } ?: false
       // Use MIME decoder to tolerate line breaks (e.g. from `base64` without -w0)
       val imageData = Base64.getMimeDecoder().decode(base64String)
+      require(imageData.size <= MAX_IMAGE_DATA_SIZE) {
+        "Image data too large: ${imageData.size} bytes (max $MAX_IMAGE_DATA_SIZE)"
+      }
 
       return InlineImageCommand(
         name = name,
