@@ -46,11 +46,11 @@ class ChangeWidthOperation {
   }
 
   @NotNull Map<TerminalLine, TerminalLine> getOldToNewLineMapping() {
-    return myOldToNewLine;
+    return Collections.unmodifiableMap(myOldToNewLine);
   }
 
   @NotNull Map<TerminalLine, Integer> getOldToNewColumnOffsets() {
-    return myOldToNewColumnOffset;
+    return Collections.unmodifiableMap(myOldToNewColumnOffset);
   }
 
   @NotNull
