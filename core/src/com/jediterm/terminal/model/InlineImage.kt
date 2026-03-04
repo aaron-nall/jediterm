@@ -4,10 +4,12 @@ package com.jediterm.terminal.model
 // ByteArray lacks value-based equals, and instances are used as LinkedHashMap keys
 // in the TerminalPanel decoded-image cache.
 class InlineImage(
-  val imageData: ByteArray,
+  imageData: ByteArray,
   val cellWidth: Int,
   val cellHeight: Int
-)
+) {
+  val imageData: ByteArray = imageData.copyOf()
+}
 
 class InlineImagePlacement(
   val image: InlineImage,
