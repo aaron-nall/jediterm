@@ -78,7 +78,7 @@ private fun resizeWithReflow(
 
   changeWidthOperation.run()
 
-  textBuffer.remapInlineImages(changeWidthOperation.oldToNewLineMapping, changeWidthOperation.oldToNewColumnOffsets)
+  textBuffer.remapInlineImages(changeWidthOperation.oldToNewLineMapping, changeWidthOperation.oldToNewColumnOffsets, newSize.columns)
 
   val newCursor = changeWidthOperation.getTrackedPoint(cursorPoint)
   if (selection != null) {

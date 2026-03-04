@@ -560,14 +560,15 @@ class TerminalTextBuffer internal constructor(
     }
   }
 
-  internal fun remapInlineImages(lineMapping: Map<TerminalLine, TerminalLine>, columnOffsets: Map<TerminalLine, Int>) {
+  internal fun remapInlineImages(lineMapping: Map<TerminalLine, TerminalLine>, columnOffsets: Map<TerminalLine, Int>, newWidth: Int) {
     val newMap: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = HashMap()
     for ((oldLine, placements) in inlineImages) {
       val newLine = lineMapping[oldLine] ?: continue
       val offset = columnOffsets[oldLine] ?: 0
       val newPlacements = newMap.getOrPut(newLine) { mutableListOf() }
       for (p in placements) {
-        newPlacements.add(InlineImagePlacement(p.image, p.startColumn + offset))
+        val newStartColumn = (p.startColumn + offset).coerceIn(0, maxOf(0, newWidth - 1))
+        newPlacements.add(InlineImagePlacement(p.image, newStartColumn))
       }
     }
     inlineImages = newMap
