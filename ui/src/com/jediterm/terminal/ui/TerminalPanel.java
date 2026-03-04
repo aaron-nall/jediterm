@@ -1105,13 +1105,19 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
         if (!readers.hasNext()) return null;
         ImageReader reader = readers.next();
         // Schedule an abort in case the reader hangs on malformed data.
-        ScheduledFuture<?> abortTask = IMAGE_TIMEOUT_EXECUTOR.schedule(
-            reader::abort, IMAGE_HEADER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        // Use a guard flag so the timeout task won't call abort() on an already-disposed reader.
+        AtomicBoolean readerDisposed = new AtomicBoolean(false);
+        ScheduledFuture<?> abortTask = IMAGE_TIMEOUT_EXECUTOR.schedule(() -> {
+          if (!readerDisposed.get()) {
+            reader.abort();
+          }
+        }, IMAGE_HEADER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         try {
           reader.setInput(iis, true, true);
           imgWidth = reader.getWidth(0);
           imgHeight = reader.getHeight(0);
         } finally {
+          readerDisposed.set(true);
           abortTask.cancel(false);
           reader.dispose();
         }
