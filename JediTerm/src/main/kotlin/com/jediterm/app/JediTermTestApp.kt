@@ -39,11 +39,11 @@ private fun parseArgs(args: Array<String>): Config {
   var i = 0
   while (i < args.size) {
     when (args[i]) {
-      "--font-family" -> fontFamily = args.nextArg(i++)
-      "--font-size" -> fontSize = args.nextArg(i++).toFloat()
-      "--bg" -> bg = parseColor(args.nextArg(i++))
-      "--fg" -> fg = parseColor(args.nextArg(i++))
-      "--command" -> command = args.nextArg(i++)
+      "--font-family" -> { fontFamily = args.nextArg(i); i++ }
+      "--font-size" -> { fontSize = args.nextArg(i).toFloat(); i++ }
+      "--bg" -> { bg = parseColor(args.nextArg(i)); i++ }
+      "--fg" -> { fg = parseColor(args.nextArg(i)); i++ }
+      "--command" -> { command = args.nextArg(i); i++ }
       else -> System.err.println("Unknown option: ${args[i]}")
     }
     i++
