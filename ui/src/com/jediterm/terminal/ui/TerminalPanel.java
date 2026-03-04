@@ -51,6 +51,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -153,9 +155,16 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private @Nullable TextStyle myCachedSelectionColor;
   private @Nullable TextStyle myCachedFoundPatternColor;
   private static final int DECODED_IMAGE_CACHE_MAX_SIZE = 64;
-  // Thread-safe cache for decoded images. Written by the background decode thread,
-  // read by the EDT during painting. Uses ConcurrentHashMap for safe cross-thread access.
-  private final ConcurrentHashMap<InlineImage, BufferedImage> myDecodedImageCache = new ConcurrentHashMap<>();
+  // Thread-safe LRU cache for decoded images. Written by the background decode thread,
+  // read by the EDT during painting. Access-order LinkedHashMap with eldest-entry eviction
+  // ensures stale entries are removed incrementally rather than all at once.
+  private final Map<InlineImage, BufferedImage> myDecodedImageCache = Collections.synchronizedMap(
+      new LinkedHashMap<>(32, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry eldest) {
+          return size() > DECODED_IMAGE_CACHE_MAX_SIZE;
+        }
+      });
 
   public TerminalPanel(@NotNull SettingsProvider settingsProvider, @NotNull TerminalTextBuffer terminalTextBuffer, @NotNull StyleState styleState) {
     mySettingsProvider = settingsProvider;
@@ -1107,11 +1116,14 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
         if (!readers.hasNext()) return null;
         ImageReader reader = readers.next();
         // Schedule an abort in case the reader hangs on malformed data.
-        // Use a guard flag so the timeout task won't call abort() on an already-disposed reader.
-        AtomicBoolean readerDisposed = new AtomicBoolean(false);
+        // Synchronize on a shared lock so that abort() and dispose() cannot overlap.
+        Object readerLock = new Object();
+        boolean[] readerDisposed = {false};
         ScheduledFuture<?> abortTask = IMAGE_TIMEOUT_EXECUTOR.schedule(() -> {
-          if (!readerDisposed.get()) {
-            reader.abort();
+          synchronized (readerLock) {
+            if (!readerDisposed[0]) {
+              reader.abort();
+            }
           }
         }, IMAGE_HEADER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         try {
@@ -1119,9 +1131,11 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
           imgWidth = reader.getWidth(0);
           imgHeight = reader.getHeight(0);
         } finally {
-          readerDisposed.set(true);
+          synchronized (readerLock) {
+            readerDisposed[0] = true;
+            reader.dispose();
+          }
           abortTask.cancel(false);
-          reader.dispose();
         }
       }
 
@@ -1229,9 +1243,6 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
           try {
             BufferedImage img = ImageIO.read(new ByteArrayInputStream(image.getImageData()));
             if (img != null) {
-              if (myDecodedImageCache.size() > DECODED_IMAGE_CACHE_MAX_SIZE) {
-                myDecodedImageCache.clear();
-              }
               myDecodedImageCache.put(image, img);
             }
           } catch (Exception e) {
