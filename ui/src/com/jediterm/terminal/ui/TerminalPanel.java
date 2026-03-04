@@ -41,7 +41,6 @@ import java.awt.im.InputMethodRequests;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 import java.io.ByteArrayInputStream;
-import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.text.AttributedCharacterIterator;
@@ -50,7 +49,7 @@ import java.text.CharacterIterator;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.WeakHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -136,7 +135,13 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private boolean myFillCharacterBackgroundIncludingLineSpacing;
   private @Nullable TextStyle myCachedSelectionColor;
   private @Nullable TextStyle myCachedFoundPatternColor;
-  private final Map<InlineImage, SoftReference<BufferedImage>> myDecodedImageCache = new WeakHashMap<>();
+  private static final int DECODED_IMAGE_CACHE_MAX_SIZE = 64;
+  private final Map<InlineImage, BufferedImage> myDecodedImageCache = new LinkedHashMap<>(32, 0.75f, true) {
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<InlineImage, BufferedImage> eldest) {
+      return size() > DECODED_IMAGE_CACHE_MAX_SIZE;
+    }
+  };
 
   public TerminalPanel(@NotNull SettingsProvider settingsProvider, @NotNull TerminalTextBuffer terminalTextBuffer, @NotNull StyleState styleState) {
     mySettingsProvider = settingsProvider;
@@ -1187,12 +1192,13 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   }
 
   private @Nullable BufferedImage decodeAndCache(InlineImage inlineImage) {
-    SoftReference<BufferedImage> ref = myDecodedImageCache.get(inlineImage);
-    BufferedImage img = ref != null ? ref.get() : null;
+    BufferedImage img = myDecodedImageCache.get(inlineImage);
     if (img == null) {
       try {
         img = ImageIO.read(new ByteArrayInputStream(inlineImage.getImageData()));
-        myDecodedImageCache.put(inlineImage, new SoftReference<>(img));
+        if (img != null) {
+          myDecodedImageCache.put(inlineImage, img);
+        }
       } catch (Exception e) {
         LOG.warn("Failed to decode inline image", e);
       }
