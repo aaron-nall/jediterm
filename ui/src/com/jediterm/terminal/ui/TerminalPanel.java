@@ -136,6 +136,7 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private @Nullable TextStyle myCachedSelectionColor;
   private @Nullable TextStyle myCachedFoundPatternColor;
   private static final int DECODED_IMAGE_CACHE_MAX_SIZE = 64;
+  // Access-ordered LRU cache. Must only be accessed from the EDT.
   private final Map<InlineImage, BufferedImage> myDecodedImageCache = new LinkedHashMap<>(32, 0.75f, true) {
     @Override
     protected boolean removeEldestEntry(Map.Entry<InlineImage, BufferedImage> eldest) {
