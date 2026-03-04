@@ -348,14 +348,14 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
         return; // display doesn't support inline images
       }
 
-      int cellWidth = Math.min(resolvedSize.getCellWidth(), myTerminalWidth);
+      int startColumn = myCursorX;
+      int cellWidth = Math.min(resolvedSize.getCellWidth(), myTerminalWidth - startColumn);
       int cellHeight = resolvedSize.getCellHeight();
       if (cellWidth <= 0 || cellHeight <= 0) {
         return;
       }
 
       InlineImage image = new InlineImage(command.getImageData(), cellWidth, cellHeight);
-      int startColumn = myCursorX;
 
       // Place the image on the first line at cursor position
       TerminalLine firstLine = myTerminalTextBuffer.getLine(myCursorY - 1);
