@@ -63,6 +63,12 @@ class InlineImageCommand(
       val heightSpec = params["height"]?.let { parseDimension(it) }
       val preserveAspectRatio = params["preserveAspectRatio"]?.let { it != "0" } ?: true
       val inline = params["inline"]?.let { it == "1" } ?: false
+      // Estimate decoded size before allocating to avoid OOM on huge payloads.
+      // Base64 encodes 3 bytes into 4 chars; MIME allows whitespace which we ignore.
+      val estimatedSize = base64String.length.toLong() * 3 / 4
+      require(estimatedSize <= MAX_IMAGE_DATA_SIZE) {
+        "Image data too large (estimated $estimatedSize bytes, max $MAX_IMAGE_DATA_SIZE)"
+      }
       // Use MIME decoder to tolerate line breaks (e.g. from `base64` without -w0)
       val imageData = Base64.getMimeDecoder().decode(base64String)
       require(imageData.size <= MAX_IMAGE_DATA_SIZE) {
