@@ -3,6 +3,7 @@ package com.jediterm.app
 import com.jediterm.pty.PtyProcessTtyConnector
 import com.jediterm.terminal.CursorShape
 import com.jediterm.terminal.TerminalColor
+import com.jediterm.terminal.TextStyle
 import com.jediterm.terminal.ui.JediTermWidget
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider
 import com.pty4j.PtyProcessBuilder
@@ -29,6 +30,20 @@ private data class Config(
   val command: String? = null,
 )
 
+private fun printHelp() {
+  println("""
+    |Usage: JediTermTestApp [OPTIONS]
+    |
+    |Options:
+    |  --font-family NAME   Font family name (e.g. "JetBrains Mono")
+    |  --font-size SIZE     Font size in points (e.g. 14)
+    |  --bg COLOR           Background color in #RRGGBB format
+    |  --fg COLOR           Foreground color in #RRGGBB format
+    |  --command CMD        Shell command to run instead of default shell
+    |  --help               Show this help message and exit
+  """.trimMargin())
+}
+
 private fun parseArgs(args: Array<String>): Config {
   var fontFamily: String? = null
   var fontSize: Float? = null
@@ -39,6 +54,7 @@ private fun parseArgs(args: Array<String>): Config {
   var i = 0
   while (i < args.size) {
     when (args[i]) {
+      "--help" -> { printHelp(); kotlin.system.exitProcess(0) }
       "--font-family" -> { fontFamily = args.nextArg(i); i++ }
       "--font-size" -> { fontSize = args.nextArg(i).toFloat(); i++ }
       "--bg" -> { bg = parseColor(args.nextArg(i)); i++ }
@@ -86,6 +102,12 @@ private fun createSettingsProvider(config: Config): DefaultSettingsProvider {
       val c = config.bg ?: return super.getDefaultBackground()
       return TerminalColor.rgb(c.red, c.green, c.blue)
     }
+
+    @Suppress("DEPRECATION")
+    override fun getDefaultStyle(): TextStyle {
+      return TextStyle(getDefaultForeground(), getDefaultBackground())
+    }
+
   }
 }
 
@@ -125,7 +147,7 @@ private fun createTtyConnector(config: Config): PtyProcessTtyConnector {
 private fun createAndShowGUI(config: Config) {
   val settingsProvider = createSettingsProvider(config)
   val widget = JediTermWidget(settingsProvider)
-  widget.terminalPanel.setDefaultCursorShape(CursorShape.BLINK_VERTICAL_BAR)
+  widget.terminalPanel.setDefaultCursorShape(CursorShape.STEADY_BLOCK)
   widget.setTtyConnector(createTtyConnector(config))
   widget.start()
 
