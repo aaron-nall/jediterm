@@ -29,6 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -1067,11 +1069,22 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
       @Nullable InlineImageCommand.DimensionSpec heightSpec,
       boolean preserveAspectRatio) {
     try {
-      BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageData));
-      if (img == null) return null;
+      int imgWidth;
+      int imgHeight;
+      try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(imageData))) {
+        if (iis == null) return null;
+        java.util.Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+        if (!readers.hasNext()) return null;
+        ImageReader reader = readers.next();
+        try {
+          reader.setInput(iis);
+          imgWidth = reader.getWidth(0);
+          imgHeight = reader.getHeight(0);
+        } finally {
+          reader.dispose();
+        }
+      }
 
-      int imgWidth = img.getWidth();
-      int imgHeight = img.getHeight();
       int charWidth = myCharSize.width;
       int charHeight = myCharSize.height;
       if (charWidth <= 0 || charHeight <= 0) return null;
