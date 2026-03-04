@@ -1093,9 +1093,10 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
       if (charWidth <= 0 || charHeight <= 0) return null;
 
       int termWidthPx = myTermSize.getColumns() * charWidth;
+      int termHeightPx = myTermSize.getRows() * charHeight;
 
       Integer targetWidthPx = resolveDimensionPx(widthSpec, charWidth, termWidthPx);
-      Integer targetHeightPx = resolveDimensionPx(heightSpec, charHeight, termWidthPx);
+      Integer targetHeightPx = resolveDimensionPx(heightSpec, charHeight, termHeightPx);
 
       if (targetWidthPx == null && targetHeightPx == null) {
         // Default: fit to terminal width, preserve aspect ratio
@@ -1132,14 +1133,14 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   }
 
   private static @Nullable Integer resolveDimensionPx(@Nullable InlineImageCommand.DimensionSpec spec,
-                                                       int charSize, int termWidthPx) {
+                                                       int charSize, int termSizePx) {
     if (spec == null) return null;
     if (spec instanceof InlineImageCommand.DimensionSpec.Cells) {
       return ((InlineImageCommand.DimensionSpec.Cells) spec).getValue() * charSize;
     } else if (spec instanceof InlineImageCommand.DimensionSpec.Pixels) {
       return ((InlineImageCommand.DimensionSpec.Pixels) spec).getValue();
     } else if (spec instanceof InlineImageCommand.DimensionSpec.Percent) {
-      return ((InlineImageCommand.DimensionSpec.Percent) spec).getValue() * termWidthPx / 100;
+      return ((InlineImageCommand.DimensionSpec.Percent) spec).getValue() * termSizePx / 100;
     }
     return null;
   }
