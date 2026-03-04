@@ -714,6 +714,7 @@ class TerminalTextBuffer internal constructor(
       val newPlacements = newMap.getOrPut(newLine) { mutableListOf() }
       for (p in placements) {
         val newStartColumn = (p.startColumn + offset).coerceIn(0, maxOf(0, newWidth - 1))
+        if (newStartColumn + p.image.cellWidth > newWidth) continue // image no longer fits
         newPlacements.add(InlineImagePlacement(p.image, newStartColumn))
       }
     }
