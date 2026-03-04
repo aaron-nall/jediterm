@@ -552,7 +552,13 @@ class TerminalTextBuffer internal constructor(
   }
 
   fun getInlineImages(line: TerminalLine): List<InlineImagePlacement> {
-    return inlineImages[line] ?: emptyList()
+    myLock.lock()
+    try {
+      val placements = inlineImages[line] ?: return emptyList()
+      return ArrayList(placements)
+    } finally {
+      myLock.unlock()
+    }
   }
 
   private fun removeInlineImagesForLines(lines: List<TerminalLine>) {
