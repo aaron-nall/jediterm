@@ -464,10 +464,10 @@ class TerminalTextBuffer internal constructor(
   }
 
   fun clearScreenAndHistoryBuffers() {
-    screenLinesStorage.clear()
-    historyLinesStorage.clear()
     myLock.lock()
     try {
+      screenLinesStorage.clear()
+      historyLinesStorage.clear()
       inlineImages.clear()
       maxInlineImageCellHeight = 0
     } finally {
@@ -486,10 +486,10 @@ class TerminalTextBuffer internal constructor(
         if (inlineImages.remove(screenLinesStorage[i]) != null) removedImages = true
       }
       if (removedImages) recomputeMaxInlineImageCellHeight()
+      screenLinesStorage.clear()
     } finally {
       myLock.unlock()
     }
-    screenLinesStorage.clear()
     fireModelChangeEvent()
     changesMulticaster.linesChanged(fromIndex = 0)
   }
