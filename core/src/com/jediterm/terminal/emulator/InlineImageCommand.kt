@@ -91,14 +91,17 @@ class InlineImageCommand(
       return when {
         value.endsWith("px") -> {
           val num = value.removeSuffix("px").toIntOrNull() ?: return null
+          if (num <= 0) return null
           DimensionSpec.Pixels(num)
         }
         value.endsWith("%") -> {
           val num = value.removeSuffix("%").toIntOrNull() ?: return null
+          if (num <= 0) return null
           DimensionSpec.Percent(num)
         }
         else -> {
           val num = value.toIntOrNull() ?: return null
+          if (num <= 0) return null
           DimensionSpec.Cells(num)
         }
       }
