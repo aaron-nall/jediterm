@@ -332,7 +332,7 @@ public class JediEmulator extends DataStreamIteratingEmulator {
 
   private boolean processInlineImage(@NotNull SystemCommandSequence args) {
     try {
-      InlineImageCommand command = InlineImageCommand.Companion.parse(args.getArgs());
+      InlineImageCommand command = InlineImageCommand.parse(args.getArgs());
       if (!command.getInline()) {
         return true; // silently accept non-inline files per protocol
       }

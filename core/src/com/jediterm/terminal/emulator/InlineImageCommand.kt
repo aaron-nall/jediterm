@@ -25,6 +25,7 @@ class InlineImageCommand(
      * - args[1] = "File=name=dGVzdA==" (first param prefixed with "File=")
      * - args[2..n] = more key=value pairs, with the last containing ":BASE64DATA" after the colon
      */
+    @JvmStatic
     fun parse(args: List<String>): InlineImageCommand {
       require(args.size >= 2) { "Expected at least 2 args, got ${args.size}" }
 
@@ -72,6 +73,7 @@ class InlineImageCommand(
       )
     }
 
+    @JvmStatic
     fun parseDimension(value: String): DimensionSpec? {
       if (value.isEmpty() || value == "auto") return null
       return when {
