@@ -288,6 +288,7 @@ public class JediEmulator extends DataStreamIteratingEmulator {
         // Let's support resetting to avoid warnings.
         // As there is no support for `Ps = 4 ; c ; spec` (Change Color Number c to the color specified by spec),
         // resetting is just no operation.
+        return true;
       case 1337:
         return processInlineImage(args);
       case 1341:

@@ -100,6 +100,38 @@ class InlineImageIntegrationTest {
   }
 
   @Test
+  fun `full-height image survives scroll into history`() {
+    val termHeight = 10
+    val session = TestSession(40, termHeight)
+    // Image as tall as the terminal
+    session.display.setInlineImageSizeOverride(InlineImageSize(20, termHeight))
+    session.process(oscInlineImage())
+
+    // Image should have scrolled into history
+    val buffer = session.terminalTextBuffer
+    assertTrue("Expected history lines", buffer.historyLinesCount > 0)
+
+    // Simulate paint scan: find the image in history
+    val maxH = buffer.maxInlineImageCellHeight
+    assertEquals(termHeight, maxH)
+    val startBuf = maxOf(-buffer.historyLinesCount, 0 - maxH + 1)
+    val endBuf = termHeight
+    var found = false
+    for (bufLine in startBuf until endBuf) {
+      val line = buffer.getLine(bufLine)
+      val placements = buffer.getInlineImages(line)
+      if (placements.isNotEmpty()) {
+        found = true
+        val originScreenRow = bufLine
+        val imageBottomRow = originScreenRow + placements[0].image.cellHeight - 1
+        assertTrue("Image should be visible: originRow=$originScreenRow bottomRow=$imageBottomRow",
+          imageBottomRow >= 0 && originScreenRow < termHeight)
+      }
+    }
+    assertTrue("Image should be found in paint scan", found)
+  }
+
+  @Test
   fun `text before and after image`() {
     val session = TestSession(40, 10)
     session.display.setInlineImageSizeOverride(InlineImageSize(5, 2))
