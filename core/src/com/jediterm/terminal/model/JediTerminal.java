@@ -338,6 +338,8 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
   @Override
   public void processInlineImage(@NotNull InlineImageCommand command) {
     // Resolve image size outside the lock to avoid blocking the EDT on image I/O.
+    // Note: the resolved dimensions are based on a snapshot of the terminal size at resolve time.
+    // A resize may occur between resolve and lock acquisition, so we re-clamp below.
     InlineImageSize resolvedSize = myDisplay.resolveInlineImageSize(
       command.getImageData(),
       command.getWidthSpec(),
@@ -350,7 +352,11 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
 
     myTerminalTextBuffer.lock();
     try {
+      // Re-clamp resolved dimensions against current terminal state (may have changed since resolve).
       int startColumn = myCursorX; // 0-based column
+      if (startColumn >= myTerminalWidth) {
+        return; // cursor is past the terminal edge after a resize
+      }
       int cellWidth = Math.min(resolvedSize.getCellWidth(), myTerminalWidth - startColumn);
       int cellHeight = Math.min(resolvedSize.getCellHeight(), myTerminalHeight);
       if (cellWidth <= 0 || cellHeight <= 0) {
