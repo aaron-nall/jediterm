@@ -722,7 +722,6 @@ class TerminalTextBuffer internal constructor(
       val newPlacements = newMap.getOrPut(newLine) { mutableListOf() }
       for (p in placements) {
         val newStartColumn = (p.startColumn + offset).coerceIn(0, maxOf(0, newWidth - 1))
-        if (newStartColumn + p.image.cellWidth > newWidth) continue // image no longer fits
         newPlacements.add(InlineImagePlacement(p.image, newStartColumn))
       }
     }
@@ -733,9 +732,8 @@ class TerminalTextBuffer internal constructor(
   /** Must be called with the text buffer lock held. */
   internal fun transferInlineImages(oldLine: TerminalLine, newLine: TerminalLine, newWidth: Int) {
     val placements = inlineImages.remove(oldLine) ?: return
-    val filtered = placements.filterTo(mutableListOf()) { it.startColumn + it.image.cellWidth <= newWidth }
-    if (filtered.isNotEmpty()) {
-      inlineImages[newLine] = filtered
+    if (placements.isNotEmpty()) {
+      inlineImages[newLine] = placements
     }
     // Always recompute: removing the old entry may have removed the tallest image,
     // and filtering may have changed which placements survive.

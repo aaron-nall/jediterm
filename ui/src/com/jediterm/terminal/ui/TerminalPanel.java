@@ -1259,7 +1259,8 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
         int originScreenRow = bufferLine - myClientScrollOrigin;
         int imageBottomRow = originScreenRow + p.getImage().getCellHeight() - 1;
         // Draw if any part of the image is within the visible area
-        if (imageBottomRow >= 0 && originScreenRow < myTermSize.getRows()) {
+        if (imageBottomRow >= 0 && originScreenRow < myTermSize.getRows()
+            && p.getStartColumn() + p.getImage().getCellWidth() <= myTermSize.getColumns()) {
           drawInlineImage(gfx, p, originScreenRow);
         }
       }
