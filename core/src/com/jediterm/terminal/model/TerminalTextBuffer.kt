@@ -731,9 +731,10 @@ class TerminalTextBuffer internal constructor(
       val filtered = placements.filterTo(mutableListOf()) { it.startColumn < newWidth }
       if (filtered.isNotEmpty()) {
         inlineImages[newLine] = filtered
-      } else {
-        recomputeMaxInlineImageCellHeight()
       }
+      // Always recompute: removing the old entry may have removed the tallest image,
+      // and filtering may have changed which placements survive.
+      recomputeMaxInlineImageCellHeight()
     } finally {
       myLock.unlock()
     }
