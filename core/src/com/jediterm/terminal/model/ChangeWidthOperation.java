@@ -205,6 +205,12 @@ class ChangeWidthOperation {
     if (myFirstNewLineCaptured) {
       myOldToNewLine.put(line, myFirstNewLineForOldLine);
       myOldToNewColumnOffset.put(line, myColumnOffsetForOldLine);
+    } else {
+      // All entries were null — treat like an empty line
+      TerminalLine emptyLine = TerminalLine.createEmpty();
+      myAllLines.add(emptyLine);
+      myOldToNewLine.put(line, emptyLine);
+      myOldToNewColumnOffset.put(line, 0);
     }
     if (!line.isWrapped()) {
       myCurrentLine = null;
