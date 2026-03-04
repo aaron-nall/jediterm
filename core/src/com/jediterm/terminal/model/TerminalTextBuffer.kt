@@ -349,7 +349,11 @@ class TerminalTextBuffer internal constructor(
     return getLine(y).charAt(x)
   }
 
+  /**
+   * Must be called with [myLock] held (via [modify]).
+   */
   fun useAlternateBuffer(enabled: Boolean) {
+    check((myLock as ReentrantLock).isHeldByCurrentThread) { "useAlternateBuffer requires the text buffer lock to be held" }
     if (enabled) {
       if (!isUsingAlternateBuffer) {
         screenLinesStorageBackup = screenLinesStorage
@@ -362,14 +366,9 @@ class TerminalTextBuffer internal constructor(
         screenBuffer = createLinesBuffer(screenLinesStorage)
         historyBuffer = createLinesBuffer(historyLinesStorage)
 
-        myLock.lock()
-        try {
-          inlineImagesBackup = inlineImages
-          inlineImages = LinkedHashMap()
-          maxInlineImageCellHeight = 0
-        } finally {
-          myLock.unlock()
-        }
+        inlineImagesBackup = inlineImages
+        inlineImages = LinkedHashMap()
+        maxInlineImageCellHeight = 0
 
         backupStorageSize = size
       }
@@ -386,14 +385,9 @@ class TerminalTextBuffer internal constructor(
         screenBufferBackup = null
         historyBufferBackup = null
 
-        myLock.lock()
-        try {
-          inlineImages = inlineImagesBackup ?: HashMap()
-          inlineImagesBackup = null
-          recomputeMaxInlineImageCellHeight()
-        } finally {
-          myLock.unlock()
-        }
+        inlineImages = inlineImagesBackup ?: HashMap()
+        inlineImagesBackup = null
+        recomputeMaxInlineImageCellHeight()
 
         // Restore the size of the main buffer screen that was at the moment of entering the alternate buffer.
         size = backupStorageSize!!
