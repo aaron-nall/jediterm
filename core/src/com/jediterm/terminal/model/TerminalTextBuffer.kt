@@ -735,7 +735,7 @@ class TerminalTextBuffer internal constructor(
   /** Must be called with the text buffer lock held. */
   internal fun transferInlineImages(oldLine: TerminalLine, newLine: TerminalLine, newWidth: Int) {
     val placements = inlineImages.remove(oldLine) ?: return
-    val filtered = placements.filterTo(mutableListOf()) { it.startColumn < newWidth }
+    val filtered = placements.filterTo(mutableListOf()) { it.startColumn + it.image.cellWidth <= newWidth }
     if (filtered.isNotEmpty()) {
       inlineImages[newLine] = filtered
     }
