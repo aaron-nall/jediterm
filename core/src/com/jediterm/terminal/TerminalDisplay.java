@@ -2,6 +2,7 @@ package com.jediterm.terminal;
 
 import com.jediterm.core.Color;
 import com.jediterm.core.util.TermSize;
+import com.jediterm.terminal.emulator.InlineImageCommand;
 import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.TerminalSelection;
@@ -45,6 +46,14 @@ public interface TerminalDisplay {
   }
 
   default @Nullable Color getWindowBackground() {
+    return null;
+  }
+
+  default @Nullable InlineImageSize resolveInlineImageSize(
+      byte[] imageData,
+      @Nullable InlineImageCommand.DimensionSpec widthSpec,
+      @Nullable InlineImageCommand.DimensionSpec heightSpec,
+      boolean preserveAspectRatio) {
     return null;
   }
 }

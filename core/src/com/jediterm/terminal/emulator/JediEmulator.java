@@ -288,6 +288,8 @@ public class JediEmulator extends DataStreamIteratingEmulator {
         // Let's support resetting to avoid warnings.
         // As there is no support for `Ps = 4 ; c ; spec` (Change Color Number c to the color specified by spec),
         // resetting is just no operation.
+      case 1337:
+        return processInlineImage(args);
       case 1341:
         List<String> argList = args.getArgs();
         myTerminal.processCustomCommand(argList.subList(1, argList.size()));
@@ -326,6 +328,20 @@ public class JediEmulator extends DataStreamIteratingEmulator {
       myTerminal.deviceStatusReport(str);
     }
     return true;
+  }
+
+  private boolean processInlineImage(@NotNull SystemCommandSequence args) {
+    try {
+      InlineImageCommand command = InlineImageCommand.Companion.parse(args.getArgs());
+      if (!command.getInline()) {
+        return true; // silently accept non-inline files per protocol
+      }
+      myTerminal.processInlineImage(command);
+      return true;
+    } catch (Exception e) {
+      LOG.warn("Failed to process inline image", e);
+      return true;
+    }
   }
 
   private void processTwoCharSequence(char ch, Terminal terminal) throws IOException {

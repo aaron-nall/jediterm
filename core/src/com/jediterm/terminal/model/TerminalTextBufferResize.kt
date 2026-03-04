@@ -78,6 +78,8 @@ private fun resizeWithReflow(
 
   changeWidthOperation.run()
 
+  textBuffer.remapInlineImages(changeWidthOperation.oldToNewLineMapping, changeWidthOperation.oldToNewColumnOffsets)
+
   val newCursor = changeWidthOperation.getTrackedPoint(cursorPoint)
   if (selection != null) {
     selection.start.setLocation(changeWidthOperation.getTrackedPoint(selection.start))
@@ -147,6 +149,9 @@ private fun truncateToSize(
     val line = screenLines[ind]
     val newLine = line.truncateToLen(newSize.columns)
     newLines.add(newLine)
+    if (newLine !== line) {
+      buffer.transferInlineImages(line, newLine)
+    }
   }
 
   screenLines.clear()

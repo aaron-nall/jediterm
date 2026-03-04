@@ -9,6 +9,7 @@ import com.jediterm.terminal.*;
 import com.jediterm.terminal.SubstringFinder.FindResult.FindItem;
 import com.jediterm.terminal.TextStyle.Option;
 import com.jediterm.terminal.emulator.ColorPalette;
+import com.jediterm.terminal.emulator.InlineImageCommand;
 import com.jediterm.terminal.emulator.charset.CharacterSets;
 import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
@@ -27,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -36,13 +38,17 @@ import java.awt.font.TextHitInfo;
 import java.awt.im.InputMethodRequests;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
+import java.io.ByteArrayInputStream;
+import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.text.AttributedCharacterIterator;
 import java.text.BreakIterator;
 import java.text.CharacterIterator;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -122,6 +128,7 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
   private boolean myFillCharacterBackgroundIncludingLineSpacing;
   private @Nullable TextStyle myCachedSelectionColor;
   private @Nullable TextStyle myCachedFoundPatternColor;
+  private final Map<InlineImage, SoftReference<BufferedImage>> myDecodedImageCache = new HashMap<>();
 
   public TerminalPanel(@NotNull SettingsProvider settingsProvider, @NotNull TerminalTextBuffer terminalTextBuffer, @NotNull StyleState styleState) {
     mySettingsProvider = settingsProvider;
@@ -843,6 +850,8 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
         }
       });
 
+      drawInlineImages(gfx);
+
       int cursorY = myCursor.getCoordY();
       if (cursorY < getRowCount() && !hasUncommittedChars()) {
         int cursorX = myCursor.getCoordX();
@@ -1048,6 +1057,118 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
 
   protected int getInsetX() {
     return 4;
+  }
+
+  @Override
+  public @Nullable InlineImageSize resolveInlineImageSize(
+      byte[] imageData,
+      @Nullable InlineImageCommand.DimensionSpec widthSpec,
+      @Nullable InlineImageCommand.DimensionSpec heightSpec,
+      boolean preserveAspectRatio) {
+    try {
+      BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageData));
+      if (img == null) return null;
+
+      int imgWidth = img.getWidth();
+      int imgHeight = img.getHeight();
+      int charWidth = myCharSize.width;
+      int charHeight = myCharSize.height;
+      if (charWidth <= 0 || charHeight <= 0) return null;
+
+      int termWidthPx = myTermSize.getColumns() * charWidth;
+
+      Integer targetWidthPx = resolveDimensionPx(widthSpec, charWidth, termWidthPx);
+      Integer targetHeightPx = resolveDimensionPx(heightSpec, charHeight, termWidthPx);
+
+      if (targetWidthPx == null && targetHeightPx == null) {
+        // Default: fit to terminal width, preserve aspect ratio
+        targetWidthPx = Math.min(imgWidth, termWidthPx);
+        targetHeightPx = (int) ((long) targetWidthPx * imgHeight / imgWidth);
+      } else if (targetWidthPx != null && targetHeightPx == null) {
+        if (preserveAspectRatio) {
+          targetHeightPx = (int) ((long) targetWidthPx * imgHeight / imgWidth);
+        } else {
+          targetHeightPx = imgHeight;
+        }
+      } else if (targetWidthPx == null) {
+        if (preserveAspectRatio) {
+          targetWidthPx = (int) ((long) targetHeightPx * imgWidth / imgHeight);
+        } else {
+          targetWidthPx = imgWidth;
+        }
+      } else if (preserveAspectRatio) {
+        // Both specified but preserve aspect ratio: fit within the box
+        double scaleW = (double) targetWidthPx / imgWidth;
+        double scaleH = (double) targetHeightPx / imgHeight;
+        double scale = Math.min(scaleW, scaleH);
+        targetWidthPx = (int) (imgWidth * scale);
+        targetHeightPx = (int) (imgHeight * scale);
+      }
+
+      int cellWidth = Math.max(1, (int) Math.ceil((double) targetWidthPx / charWidth));
+      int cellHeight = Math.max(1, (int) Math.ceil((double) targetHeightPx / charHeight));
+      return new InlineImageSize(cellWidth, cellHeight);
+    } catch (Exception e) {
+      LOG.warn("Failed to resolve inline image size", e);
+      return null;
+    }
+  }
+
+  private static @Nullable Integer resolveDimensionPx(@Nullable InlineImageCommand.DimensionSpec spec,
+                                                       int charSize, int termWidthPx) {
+    if (spec == null) return null;
+    if (spec instanceof InlineImageCommand.DimensionSpec.Cells) {
+      return ((InlineImageCommand.DimensionSpec.Cells) spec).getValue() * charSize;
+    } else if (spec instanceof InlineImageCommand.DimensionSpec.Pixels) {
+      return ((InlineImageCommand.DimensionSpec.Pixels) spec).getValue();
+    } else if (spec instanceof InlineImageCommand.DimensionSpec.Percent) {
+      return ((InlineImageCommand.DimensionSpec.Percent) spec).getValue() * termWidthPx / 100;
+    }
+    return null;
+  }
+
+  private void drawInlineImages(Graphics2D gfx) {
+    // Scan lines above the visible area too: an image whose origin line has scrolled
+    // off the top may still be partially visible if it's tall enough.
+    int maxLookback = myTermSize.getRows(); // upper bound for image height in cells
+    int startBufferLine = Math.max(myClientScrollOrigin - maxLookback, -myTerminalTextBuffer.getHistoryLinesCount());
+    int endBufferLine = myClientScrollOrigin + myTermSize.getRows();
+    for (int bufferLine = startBufferLine; bufferLine < endBufferLine; bufferLine++) {
+      TerminalLine line = myTerminalTextBuffer.getLine(bufferLine);
+      java.util.List<InlineImagePlacement> placements = myTerminalTextBuffer.getInlineImages(line);
+      for (InlineImagePlacement p : placements) {
+        int originScreenRow = bufferLine - myClientScrollOrigin;
+        int imageBottomRow = originScreenRow + p.getImage().getCellHeight() - 1;
+        // Draw if any part of the image is within the visible area
+        if (imageBottomRow >= 0 && originScreenRow < myTermSize.getRows()) {
+          drawInlineImage(gfx, p, originScreenRow);
+        }
+      }
+    }
+  }
+
+  private void drawInlineImage(Graphics2D gfx, InlineImagePlacement p, int screenRow) {
+    BufferedImage img = decodeAndCache(p.getImage());
+    if (img == null) return;
+    int x = p.getStartColumn() * myCharSize.width + getInsetX();
+    int y = screenRow * myCharSize.height;
+    int w = p.getImage().getCellWidth() * myCharSize.width;
+    int h = p.getImage().getCellHeight() * myCharSize.height;
+    gfx.drawImage(img, x, y, x + w, y + h, 0, 0, img.getWidth(), img.getHeight(), null);
+  }
+
+  private @Nullable BufferedImage decodeAndCache(InlineImage inlineImage) {
+    SoftReference<BufferedImage> ref = myDecodedImageCache.get(inlineImage);
+    BufferedImage img = ref != null ? ref.get() : null;
+    if (img == null) {
+      try {
+        img = ImageIO.read(new ByteArrayInputStream(inlineImage.getImageData()));
+        myDecodedImageCache.put(inlineImage, new SoftReference<>(img));
+      } catch (Exception e) {
+        LOG.warn("Failed to decode inline image", e);
+      }
+    }
+    return img;
   }
 
   public void addTerminalMouseListener(final TerminalMouseListener listener) {

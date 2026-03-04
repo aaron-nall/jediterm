@@ -2,7 +2,9 @@ package com.jediterm.util;
 
 import com.jediterm.core.Color;
 import com.jediterm.terminal.CursorShape;
+import com.jediterm.terminal.InlineImageSize;
 import com.jediterm.terminal.TerminalDisplay;
+import com.jediterm.terminal.emulator.InlineImageCommand;
 import com.jediterm.terminal.emulator.mouse.MouseFormat;
 import com.jediterm.terminal.emulator.mouse.MouseMode;
 import com.jediterm.terminal.model.TerminalSelection;
@@ -101,5 +103,20 @@ public class BackBufferDisplay implements TerminalDisplay {
 
   public void setWindowBackground(@Nullable Color backgroundColor) {
     myBackgroundColor = backgroundColor;
+  }
+
+  private @Nullable InlineImageSize myInlineImageSizeOverride;
+
+  public void setInlineImageSizeOverride(@Nullable InlineImageSize size) {
+    myInlineImageSizeOverride = size;
+  }
+
+  @Override
+  public @Nullable InlineImageSize resolveInlineImageSize(
+      byte[] imageData,
+      @Nullable InlineImageCommand.DimensionSpec widthSpec,
+      @Nullable InlineImageCommand.DimensionSpec heightSpec,
+      boolean preserveAspectRatio) {
+    return myInlineImageSizeOverride;
   }
 }

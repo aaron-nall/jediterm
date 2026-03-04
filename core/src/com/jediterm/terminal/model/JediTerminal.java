@@ -335,6 +335,55 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
   }
 
   @Override
+  public void processInlineImage(@NotNull com.jediterm.terminal.emulator.InlineImageCommand command) {
+    myTerminalTextBuffer.lock();
+    try {
+      InlineImageSize resolvedSize = myDisplay.resolveInlineImageSize(
+        command.getImageData(),
+        command.getWidthSpec(),
+        command.getHeightSpec(),
+        command.getPreserveAspectRatio()
+      );
+      if (resolvedSize == null) {
+        return; // display doesn't support inline images
+      }
+
+      int cellWidth = Math.min(resolvedSize.getCellWidth(), myTerminalWidth);
+      int cellHeight = resolvedSize.getCellHeight();
+      if (cellWidth <= 0 || cellHeight <= 0) {
+        return;
+      }
+
+      InlineImage image = new InlineImage(command.getImageData(), cellWidth, cellHeight);
+      int startColumn = myCursorX;
+
+      // Place the image on the first line at cursor position
+      TerminalLine firstLine = myTerminalTextBuffer.getLine(myCursorY - 1);
+      InlineImagePlacement placement = new InlineImagePlacement(image, startColumn);
+      myTerminalTextBuffer.addInlineImage(firstLine, placement);
+
+      // Write placeholder spaces for each row the image occupies
+      String spaceLine = " ".repeat(cellWidth);
+      for (int row = 0; row < cellHeight; row++) {
+        if (row > 0) {
+          myCursorY += 1;
+          scrollY();
+        }
+        myCursorX = startColumn;
+        myTerminalTextBuffer.writeString(myCursorX, myCursorY, new CharBuffer(spaceLine));
+      }
+
+      // Move cursor past the image
+      myCursorX = 0;
+      myCursorY += 1;
+      scrollY();
+      finishText();
+    } finally {
+      myTerminalTextBuffer.unlock();
+    }
+  }
+
+  @Override
   public void backspace() {
     myCursorX -= 1;
     if (myCursorX < 0) {

@@ -61,6 +61,10 @@ class TerminalTextBuffer internal constructor(
 
   private val myLock: Lock = ReentrantLock()
 
+  // Sideband map for inline images, keyed by TerminalLine identity
+  private var inlineImages: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = HashMap()
+  private var inlineImagesBackup: MutableMap<TerminalLine, MutableList<InlineImagePlacement>>? = null
+
   // The state of the main buffer's screen and history at the moment of entering the alternate buffer.
   private var historyLinesStorageBackup: LinesStorage? = null
   private var screenLinesStorageBackup: LinesStorage? = null
@@ -336,6 +340,9 @@ class TerminalTextBuffer internal constructor(
         screenBuffer = createLinesBuffer(screenLinesStorage)
         historyBuffer = createLinesBuffer(historyLinesStorage)
 
+        inlineImagesBackup = inlineImages
+        inlineImages = HashMap()
+
         backupStorageSize = size
       }
     }
@@ -350,6 +357,9 @@ class TerminalTextBuffer internal constructor(
         historyBuffer = historyBufferBackup!!
         screenBufferBackup = null
         historyBufferBackup = null
+
+        inlineImages = inlineImagesBackup ?: HashMap()
+        inlineImagesBackup = null
 
         // Restore the size of the main buffer screen that was at the moment of entering the alternate buffer.
         size = backupStorageSize!!
@@ -403,12 +413,17 @@ class TerminalTextBuffer internal constructor(
   fun clearScreenAndHistoryBuffers() {
     screenLinesStorage.clear()
     historyLinesStorage.clear()
+    inlineImages.clear()
     fireModelChangeEvent()
     changesMulticaster.historyCleared()
     changesMulticaster.linesChanged(fromIndex = 0)
   }
 
   fun clearScreenBuffer() {
+    // Remove inline images associated with screen lines
+    for (i in 0 until screenLinesStorage.size) {
+      inlineImages.remove(screenLinesStorage[i])
+    }
     screenLinesStorage.clear()
     fireModelChangeEvent()
     changesMulticaster.linesChanged(fromIndex = 0)
@@ -499,6 +514,7 @@ class TerminalTextBuffer internal constructor(
     historyLinesStorage.addAllToBottom(linesToAdd)
 
     if (linesToDiscard.isNotEmpty()) {
+      removeInlineImagesForLines(linesToDiscard)
       changesMulticaster.linesDiscardedFromHistory(linesToDiscard)
     }
   }
@@ -522,6 +538,40 @@ class TerminalTextBuffer internal constructor(
   private fun clearTypeAheadPredictions(storage: LinesStorage) {
     for (line in storage) {
       line.myTypeAheadLine = null
+    }
+  }
+
+  fun addInlineImage(line: TerminalLine, placement: InlineImagePlacement) {
+    inlineImages.getOrPut(line) { mutableListOf() }.add(placement)
+  }
+
+  fun getInlineImages(line: TerminalLine): List<InlineImagePlacement> {
+    return inlineImages[line] ?: emptyList()
+  }
+
+  private fun removeInlineImagesForLines(lines: List<TerminalLine>) {
+    for (line in lines) {
+      inlineImages.remove(line)
+    }
+  }
+
+  internal fun remapInlineImages(lineMapping: Map<TerminalLine, TerminalLine>, columnOffsets: Map<TerminalLine, Int>) {
+    val newMap: MutableMap<TerminalLine, MutableList<InlineImagePlacement>> = HashMap()
+    for ((oldLine, placements) in inlineImages) {
+      val newLine = lineMapping[oldLine] ?: continue
+      val offset = columnOffsets[oldLine] ?: 0
+      val newPlacements = newMap.getOrPut(newLine) { mutableListOf() }
+      for (p in placements) {
+        newPlacements.add(InlineImagePlacement(p.image, p.startColumn + offset))
+      }
+    }
+    inlineImages = newMap
+  }
+
+  internal fun transferInlineImages(oldLine: TerminalLine, newLine: TerminalLine) {
+    val placements = inlineImages.remove(oldLine)
+    if (placements != null) {
+      inlineImages[newLine] = placements
     }
   }
 

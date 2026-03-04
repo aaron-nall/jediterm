@@ -23,6 +23,13 @@ class ChangeWidthOperation {
   private TerminalLine myCurrentLine;
   private int myCurrentLineLength;
 
+  // Tracks old TerminalLine → first new TerminalLine it maps to during reflow (for inline image transfer)
+  private final IdentityHashMap<TerminalLine, TerminalLine> myOldToNewLine = new IdentityHashMap<>();
+  private final IdentityHashMap<TerminalLine, Integer> myOldToNewColumnOffset = new IdentityHashMap<>();
+  private TerminalLine myFirstNewLineForOldLine;
+  private int myColumnOffsetForOldLine;
+  private boolean myFirstNewLineCaptured;
+
   ChangeWidthOperation(@NotNull TerminalTextBuffer textBuffer,
                        int newWidth, int newHeight) { 
     myTextBuffer = textBuffer;
@@ -36,6 +43,14 @@ class ChangeWidthOperation {
      point.y = Math.min(Math.max(point.y, 0), myTextBuffer.getHeight() - 1);
    }
    myTrackingPoints.put(new TrackingPoint(point, isForceVisible), null);
+  }
+
+  @NotNull Map<TerminalLine, TerminalLine> getOldToNewLineMapping() {
+    return myOldToNewLine;
+  }
+
+  @NotNull Map<TerminalLine, Integer> getOldToNewColumnOffsets() {
+    return myOldToNewColumnOffset;
   }
 
   @NotNull
@@ -144,12 +159,19 @@ class ChangeWidthOperation {
   }
 
   private void addLine(@NotNull TerminalLine line) {
+    myFirstNewLineForOldLine = myCurrentLine;
+    myColumnOffsetForOldLine = myCurrentLineLength;
+    myFirstNewLineCaptured = (myCurrentLine != null);
+
     if (line.isNul()) {
       if (myCurrentLine != null) {
         myCurrentLine = null;
         myCurrentLineLength = 0;
       }
-      myAllLines.add(TerminalLine.createEmpty());
+      TerminalLine emptyLine = TerminalLine.createEmpty();
+      myAllLines.add(emptyLine);
+      myOldToNewLine.put(line, emptyLine);
+      myOldToNewColumnOffset.put(line, 0);
       return;
     }
     line.forEachEntry(entry -> {
@@ -167,6 +189,11 @@ class ChangeWidthOperation {
           myCurrentLine = new TerminalLine();
           myCurrentLineLength = 0;
           myAllLines.add(myCurrentLine);
+          if (!myFirstNewLineCaptured) {
+            myFirstNewLineForOldLine = myCurrentLine;
+            myColumnOffsetForOldLine = 0;
+            myFirstNewLineCaptured = true;
+          }
         }
         int len = Math.min(myNewWidth - myCurrentLineLength, entry.getLength() - entryProcessedLength);
         TerminalLine.TextEntry newEntry = subEntry(entry, entryProcessedLength, len);
@@ -175,6 +202,10 @@ class ChangeWidthOperation {
         entryProcessedLength += len;
       }
     });
+    if (myFirstNewLineCaptured) {
+      myOldToNewLine.put(line, myFirstNewLineForOldLine);
+      myOldToNewColumnOffset.put(line, myColumnOffsetForOldLine);
+    }
     if (!line.isWrapped()) {
       myCurrentLine = null;
       myCurrentLineLength = 0;

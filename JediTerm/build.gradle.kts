@@ -24,3 +24,8 @@ dependencies {
 application {
   mainClass = "com.jediterm.app.JediTermMain"
 }
+
+tasks.register<JavaExec>("runTestApp") {
+  mainClass.set("com.jediterm.app.JediTermTestAppKt")
+  classpath = sourceSets["main"].runtimeClasspath
+}
