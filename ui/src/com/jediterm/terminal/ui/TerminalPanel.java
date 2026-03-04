@@ -49,6 +49,7 @@ import java.text.BreakIterator;
 import java.text.CharacterIterator;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.WeakHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1073,7 +1074,7 @@ public class TerminalPanel extends JComponent implements TerminalDisplay, Termin
       int imgHeight;
       try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(imageData))) {
         if (iis == null) return null;
-        java.util.Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+        Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
         if (!readers.hasNext()) return null;
         ImageReader reader = readers.next();
         try {
