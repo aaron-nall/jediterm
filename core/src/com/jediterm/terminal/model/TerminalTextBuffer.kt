@@ -350,6 +350,7 @@ class TerminalTextBuffer internal constructor(
 
         inlineImagesBackup = inlineImages
         inlineImages = HashMap()
+        maxInlineImageCellHeight = 0
 
         backupStorageSize = size
       }
@@ -368,6 +369,7 @@ class TerminalTextBuffer internal constructor(
 
         inlineImages = inlineImagesBackup ?: HashMap()
         inlineImagesBackup = null
+        recomputeMaxInlineImageCellHeight()
 
         // Restore the size of the main buffer screen that was at the moment of entering the alternate buffer.
         size = backupStorageSize!!
@@ -407,12 +409,14 @@ class TerminalTextBuffer internal constructor(
 
   fun clearLines(startRow: Int, endRow: Int) {
     val filler = createFillerEntry()
+    var removedImages = false
     for (ind in startRow..endRow) {
       val line = screenLinesStorage[ind]
-      inlineImages.remove(line)
+      if (inlineImages.remove(line) != null) removedImages = true
       line.clear(filler)
       setLineWrapped(ind, false)
     }
+    if (removedImages) recomputeMaxInlineImageCellHeight()
     fireModelChangeEvent()
     changesMulticaster.linesChanged(fromIndex = startRow)
   }
@@ -436,6 +440,7 @@ class TerminalTextBuffer internal constructor(
     screenLinesStorage.clear()
     historyLinesStorage.clear()
     inlineImages.clear()
+    maxInlineImageCellHeight = 0
     fireModelChangeEvent()
     changesMulticaster.historyCleared()
     changesMulticaster.linesChanged(fromIndex = 0)
@@ -443,9 +448,11 @@ class TerminalTextBuffer internal constructor(
 
   fun clearScreenBuffer() {
     // Remove inline images associated with screen lines
+    var removedImages = false
     for (i in 0 until screenLinesStorage.size) {
-      inlineImages.remove(screenLinesStorage[i])
+      if (inlineImages.remove(screenLinesStorage[i]) != null) removedImages = true
     }
+    if (removedImages) recomputeMaxInlineImageCellHeight()
     screenLinesStorage.clear()
     fireModelChangeEvent()
     changesMulticaster.linesChanged(fromIndex = 0)
@@ -478,9 +485,11 @@ class TerminalTextBuffer internal constructor(
   fun clearHistory() {
     modify {
       val lineCount = historyLinesStorage.size
+      var removedImages = false
       for (i in 0 until lineCount) {
-        inlineImages.remove(historyLinesStorage[i])
+        if (inlineImages.remove(historyLinesStorage[i]) != null) removedImages = true
       }
+      if (removedImages) recomputeMaxInlineImageCellHeight()
       historyLinesStorage.clear()
       if (lineCount > 0) {
         fireHistoryBufferLineCountChanged()
@@ -584,9 +593,27 @@ class TerminalTextBuffer internal constructor(
   }
 
   private fun removeInlineImagesForLines(lines: List<TerminalLine>) {
+    var removed = false
     for (line in lines) {
-      inlineImages.remove(line)
+      if (inlineImages.remove(line) != null) {
+        removed = true
+      }
     }
+    if (removed) {
+      recomputeMaxInlineImageCellHeight()
+    }
+  }
+
+  private fun recomputeMaxInlineImageCellHeight() {
+    var max = 0
+    for (placements in inlineImages.values) {
+      for (p in placements) {
+        if (p.image.cellHeight > max) {
+          max = p.image.cellHeight
+        }
+      }
+    }
+    maxInlineImageCellHeight = max
   }
 
   internal fun remapInlineImages(lineMapping: Map<TerminalLine, TerminalLine>, columnOffsets: Map<TerminalLine, Int>, newWidth: Int) {
@@ -601,6 +628,7 @@ class TerminalTextBuffer internal constructor(
       }
     }
     inlineImages = newMap
+    recomputeMaxInlineImageCellHeight()
   }
 
   internal fun transferInlineImages(oldLine: TerminalLine, newLine: TerminalLine, newWidth: Int) {
@@ -608,6 +636,8 @@ class TerminalTextBuffer internal constructor(
     val filtered = placements.filterTo(mutableListOf()) { it.startColumn < newWidth }
     if (filtered.isNotEmpty()) {
       inlineImages[newLine] = filtered
+    } else {
+      recomputeMaxInlineImageCellHeight()
     }
   }
 
