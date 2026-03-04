@@ -352,7 +352,7 @@ public class JediTerminal implements Terminal, TerminalMouseListener, TerminalCo
     try {
       int startColumn = myCursorX; // 0-based column
       int cellWidth = Math.min(resolvedSize.getCellWidth(), myTerminalWidth - startColumn);
-      int cellHeight = resolvedSize.getCellHeight();
+      int cellHeight = Math.min(resolvedSize.getCellHeight(), myTerminalHeight);
       if (cellWidth <= 0 || cellHeight <= 0) {
         return;
       }
